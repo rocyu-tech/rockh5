@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
 import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -65,6 +66,10 @@ function DialogContent({
         )}
         {...props}
       >
+        <VisuallyHidden.Root>
+          <DialogPrimitive.Title>Dialog</DialogPrimitive.Title>
+          <DialogPrimitive.Description>Lucky Wheel dialog</DialogPrimitive.Description>
+        </VisuallyHidden.Root>
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
