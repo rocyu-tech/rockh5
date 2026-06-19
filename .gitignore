@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Misc
+.DS_Store
+*.pem
+.env*.local
+.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+
+# Go
+account admin bootstrap lobby bin/
+*.exe *.dll *.so *.dylib *.test *.out
+go.work go.work.sum
+
+# Cache
+.cache/
+--timeout
