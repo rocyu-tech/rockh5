@@ -258,3 +258,75 @@ export const shopApi = {
 };
 
 export { TOKEN_KEY, REFRESH_TOKEN_KEY };
+
+// === Wheel / Lucky Spin ===
+export interface WheelPrize {
+  id: number;
+  name: string;
+  type: string; // "bonus" / "coin" / "item" / "empty"
+  value: number;
+  item_id: number;
+  weight: number;
+  icon: string;
+  rarity: string; // "common" / "rare" / "epic" / "legendary"
+  stock: number;
+  remaining: number;
+}
+
+export interface WheelConfig {
+  has_activity: boolean;
+  activity_id: number;
+  name: string;
+  start_time: string;
+  end_time: string;
+  free_spins_per_day: number;
+  spin_cost: number;
+  spin_cost_type: string;
+  cooldown_sec: number;
+  max_spins_per_day: number;
+  prizes: WheelPrize[];
+}
+
+export interface WheelState {
+  has_activity: boolean;
+  activity_id: number;
+  remaining_free: number;
+  total_spins: number;
+  today_total_spins: number;
+  cooldown_remaining: number;
+  can_afford_paid: boolean;
+  spin_cost: number;
+  spin_cost_type: string;
+  daily_limit_reached: boolean;
+  history: Array<{
+    prize_name: string;
+    prize_type: string;
+    prize_rarity: string;
+    value: number;
+    created_at: string;
+  }>;
+}
+
+export interface SpinResult {
+  spin_type: string;
+  prize_index: number;
+  prize: {
+    id: number;
+    name: string;
+    type: string;
+    value: number;
+    item_id: number;
+    rarity: string;
+    icon: string;
+  };
+  total_spins: number;
+  remaining_free: number;
+  today_total_spins: number;
+}
+
+export const wheelApi = {
+  getConfig: () => api.get<ApiResponse<WheelConfig>>("/activity/spin-wheel/config"),
+  getState: () => api.get<ApiResponse<WheelState>>("/activity/spin-wheel/state"),
+  spin: (useFree?: boolean) =>
+    api.post<ApiResponse<SpinResult>>("/activity/spin-wheel", useFree !== undefined ? { use_free: useFree } : {}),
+};

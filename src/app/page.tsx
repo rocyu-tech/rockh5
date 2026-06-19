@@ -7,6 +7,7 @@ import GameCategories from '@/components/GameCategories';
 import GameGrid from '@/components/GameGrid';
 import VIPSection from '@/components/VIPSection';
 import PromotionsSection from '@/components/PromotionsSection';
+import SpinWheel from '@/components/SpinWheel';
 import Footer from '@/components/Footer';
 import LoginModal from '@/components/LoginModal';
 import RegisterModal from '@/components/RegisterModal';
@@ -29,7 +30,8 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState(0);
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
-  const { hydrate } = useAuthStore();
+  const [spinOpen, setSpinOpen] = useState(false);
+  const { hydrate, isLoggedIn } = useAuthStore();
   const apiStatus = useApiStatus();
 
   useEffect(() => {
@@ -70,6 +72,14 @@ export default function Home() {
   const switchToLogin = () => {
     setRegisterOpen(false);
     setTimeout(() => setLoginOpen(true), 200);
+  };
+
+  const handleSpinClick = () => {
+    if (!isLoggedIn) {
+      setLoginOpen(true);
+    } else {
+      setSpinOpen(true);
+    }
   };
 
   return (
@@ -165,7 +175,7 @@ export default function Home() {
           <p className="text-sm text-[#8892b0] mb-6">
             Take advantage of our exclusive bonuses and promotions. Boost your bankroll today!
           </p>
-          <PromotionsSection />
+          <PromotionsSection onSpinClick={handleSpinClick} />
         </section>
 
         {/* Agent Section */}
@@ -223,6 +233,12 @@ export default function Home() {
         open={registerOpen}
         onOpenChange={setRegisterOpen}
         switchToLogin={switchToLogin}
+      />
+
+      {/* Spin Wheel Modal */}
+      <SpinWheel
+        open={spinOpen}
+        onOpenChange={setSpinOpen}
       />
     </div>
     </ApiStatusContext.Provider>
