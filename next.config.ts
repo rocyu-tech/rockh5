@@ -5,12 +5,15 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  turbopack: {
+    root: "/data/src/rockh5",
+  },
   reactStrictMode: false,
   async rewrites() {
     return [
       {
         source: "/api/v1/:path*",
-        destination: "http://47.108.78.147:8080/api/v1/:path*",
+        destination: "http://47.108.78.147:8880/api/v1/:path*",
       },
     ];
   },
