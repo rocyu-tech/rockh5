@@ -13,6 +13,7 @@ import LoginModal from '@/components/LoginModal';
 import RegisterModal from '@/components/RegisterModal';
 import ConnectionBanner from '@/components/ConnectionBanner';
 import ProfileModal from '@/components/ProfileModal';
+import TransactionHistory from '@/components/TransactionHistory';
 import { useAuthStore } from '@/store/auth';
 import { useApiStatus, ApiStatusContext } from '@/lib/api-status';
 import { Gem, Gamepad2, Gift, TrendingUp, Users, Trophy, Star, Shield } from 'lucide-react';
@@ -25,6 +26,7 @@ export default function Home() {
   const [registerOpen, setRegisterOpen] = useState(false);
   const [spinOpen, setSpinOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [transactionsOpen, setTransactionsOpen] = useState(false);
   const { hydrate, isLoggedIn } = useAuthStore();
   const apiStatus = useApiStatus();
 
@@ -40,11 +42,15 @@ export default function Home() {
     // Listen for nav events from Navbar
     const handleOpenProfile = () => setProfileOpen(true);
     window.addEventListener('nav:open-profile', handleOpenProfile);
+
+    const handleOpenTransactions = () => setTransactionsOpen(true);
+    window.addEventListener('nav:open-transactions', handleOpenTransactions);
+
     return () => {
       window.removeEventListener('auth:logout', handleAuthLogout);
       window.removeEventListener('nav:open-profile', handleOpenProfile);
+      window.removeEventListener('nav:open-transactions', handleOpenTransactions);
     };
-    return () => window.removeEventListener('auth:logout', handleAuthLogout);
   }, [hydrate]);
 
   // Scroll spy for active section
@@ -235,6 +241,18 @@ export default function Home() {
         open={registerOpen}
         onOpenChange={setRegisterOpen}
         switchToLogin={switchToLogin}
+      />
+
+      {/* Profile Modal */}
+      <ProfileModal
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+      />
+
+      {/* Transaction History Modal */}
+      <TransactionHistory
+        open={transactionsOpen}
+        onOpenChange={setTransactionsOpen}
       />
 
       {/* Spin Wheel Modal */}

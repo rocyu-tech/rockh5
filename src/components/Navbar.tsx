@@ -140,7 +140,7 @@ export default function Navbar({ activeSection, onSectionChange, onLoginClick, o
                       Profile
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => {
-                      const evt = new CustomEvent("nav:open-profile");
+                      const evt = new CustomEvent("nav:open-transactions");
                       window.dispatchEvent(evt);
                     }} className="text-[#ccd6f6] focus:bg-[#f5a623]/10 focus:text-[#f5a623] cursor-pointer">
                       <TrendingUp className="mr-2 h-4 w-4" />
