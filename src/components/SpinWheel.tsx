@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '@/store/auth';
 import { wheelApi, type WheelConfig, type WheelState, type SpinResult } from '@/lib/api';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Loader2, RotateCw, Gift, Zap, Clock, History, X } from 'lucide-react';
 
@@ -20,10 +20,10 @@ const RARITY_COLORS: Record<string, string> = {
 };
 
 const RARITY_BG: Record<string, string> = {
-  common: 'from-[#1a1a2e] to-[#16213e]',
-  rare: 'from-[#0d3b3a] to-[#1a2e3e]',
-  epic: 'from-[#2d1b4e] to-[#1a1a2e]',
-  legendary: 'from-[#3d2b0e] to-[#1a1a2e]',
+  common: 'rgba(26, 26, 46, 0.9)',
+  rare: 'rgba(13, 59, 58, 0.9)',
+  epic: 'rgba(45, 27, 78, 0.9)',
+  legendary: 'rgba(61, 43, 14, 0.9)',
 };
 
 const PRIZE_TYPE_ICONS: Record<string, string> = {
@@ -43,7 +43,7 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [rotation, setRotation] = useState(0);
-  const wheelRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const fetchData = useCallback(async () => {
     if (!isLoggedIn) return;
@@ -63,6 +63,113 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
       setLoading(false);
     }
   }, [isLoggedIn]);
+
+  // Draw wheel on canvas whenever config changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const prizes = config?.prizes ?? [];
+    if (prizes.length === 0) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const displaySize = 280; // display pixels
+    canvas.width = displaySize * dpr;
+    canvas.height = displaySize * dpr;
+    canvas.style.width = `${displaySize}px`;
+    canvas.style.height = `${displaySize}px`;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.scale(dpr, dpr);
+    const cx = displaySize / 2;
+    const cy = displaySize / 2;
+    const radius = displaySize / 2 - 4;
+    const prizeCount = prizes.length;
+    const anglePerPrize = (2 * Math.PI) / prizeCount;
+
+    // Draw each sector
+    for (let i = 0; i < prizeCount; i++) {
+      const startAngle = i * anglePerPrize - Math.PI / 2;
+      const endAngle = startAngle + anglePerPrize;
+      const midAngle = startAngle + anglePerPrize / 2;
+      const prize = prizes[i];
+      const color = RARITY_COLORS[prize.rarity] || RARITY_COLORS.common;
+      const bgColor = RARITY_BG[prize.rarity] || RARITY_BG.common;
+
+      // Sector fill
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, startAngle, endAngle);
+      ctx.closePath();
+      ctx.fillStyle = bgColor;
+      ctx.fill();
+
+      // Sector border
+      ctx.strokeStyle = color + '40';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Prize icon
+      const icon = PRIZE_TYPE_ICONS[prize.type] || '?';
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(midAngle);
+      ctx.fillStyle = color;
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(icon, radius * 0.62, 0);
+
+      // Prize name
+      ctx.font = '10px sans-serif';
+      ctx.fillStyle = color + 'cc';
+      ctx.fillText(prize.name, radius * 0.45, 12);
+      ctx.restore();
+    }
+
+    // Outer ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(245, 166, 35, 0.5)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Decorative dots on outer ring
+    for (let i = 0; i < prizeCount; i++) {
+      const angle = i * anglePerPrize - Math.PI / 2;
+      const dotX = cx + radius * Math.cos(angle);
+      const dotY = cy + radius * Math.sin(angle);
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#f5a623';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffd700';
+      ctx.fill();
+    }
+
+    // Center circle
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 30);
+    grad.addColorStop(0, '#f5a623');
+    grad.addColorStop(1, '#e94560');
+    ctx.beginPath();
+    ctx.arc(cx, cy, 28, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = '#0a0a1a';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Center icon
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\u26A1', cx, cy);
+  }, [config]);
 
   useEffect(() => {
     if (open && isLoggedIn) {
@@ -92,22 +199,20 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
       const res = await wheelApi.spin(useFree || undefined);
       const result = res.data?.data;
       if (result) {
-        // Calculate rotation: multiple full rotations + land on prize index
         const prizes = config?.prizes ?? [];
         const prizeCount = prizes.length;
         const anglePerPrize = 360 / prizeCount;
+        // Target: the prize sector should end up at top (0 degrees = 12 o'clock)
         const targetAngle = 360 - (result.prize_index * anglePerPrize + anglePerPrize / 2);
-        const fullSpins = 5 + Math.floor(Math.random() * 3); // 5-7 full rotations
+        const fullSpins = 5 + Math.floor(Math.random() * 3);
         const newRotation = rotation + fullSpins * 360 + targetAngle - (rotation % 360);
 
         setRotation(newRotation);
         setSpinResult(result);
 
-        // Show result after animation ends
         setTimeout(() => {
           setShowResult(true);
           setSpinning(false);
-          // Refresh state
           wheelApi.getState().then(s => setState(s.data?.data ?? null));
         }, 4500);
       }
@@ -119,16 +224,12 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
   };
 
   const prizes = config?.prizes ?? [];
-  const prizeCount = prizes.length;
-  const anglePerPrize = prizeCount > 0 ? 360 / prizeCount : 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-[#0a0a1a] border-[#f5a623]/20 text-[#ccd6f6] p-0 overflow-hidden max-h-[90vh]">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Lucky Wheel</DialogTitle>
-          <DialogDescription>Spin the wheel to win prizes</DialogDescription>
-        </DialogHeader>
+      <DialogContent className="bg-[#0a0a1a] border-[#f5a623]/20 text-[#ccd6f6] rounded-2xl max-h-[90vh] overflow-y-auto" showCloseButton={false}>
+        <DialogTitle className="sr-only">Lucky Wheel</DialogTitle>
+        <DialogDescription className="sr-only">Spin the wheel to win prizes</DialogDescription>
 
         {/* Close button */}
         <button
@@ -138,15 +239,15 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
           <X className="w-4 h-4 text-[#ccd6f6]" />
         </button>
 
-        <div className="px-6 pt-6 pb-2">
+        <div className="px-4 pt-5 pb-2">
           {/* Title */}
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-gold-gradient flex items-center justify-center gap-2">
-              <RotateCw className="w-6 h-6" />
+            <h2 className="text-xl font-bold text-gold-gradient flex items-center justify-center gap-2">
+              <RotateCw className="w-5 h-5" />
               Lucky Wheel
             </h2>
             {state && (
-              <div className="flex items-center justify-center gap-4 mt-2 text-sm">
+              <div className="flex items-center justify-center gap-4 mt-1.5 text-sm">
                 <span className="flex items-center gap-1 text-[#f5a623]">
                   <Gift className="w-3.5 h-3.5" />
                   {state.remaining_free} free
@@ -163,22 +264,21 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
         </div>
 
         {/* Wheel area */}
-        <div className="relative flex items-center justify-center py-4 px-6">
+        <div className="flex flex-col items-center py-3 px-4">
           {loading ? (
-            <div className="w-64 h-64 rounded-full bg-[#1a1a2e] border border-[#f5a623]/20 flex items-center justify-center">
+            <div className="w-[280px] h-[280px] rounded-full bg-[#1a1a2e] border border-[#f5a623]/20 flex items-center justify-center">
               <Loader2 className="w-8 h-8 text-[#f5a623] animate-spin" />
             </div>
           ) : prizes.length > 0 ? (
-            <>
-              {/* Pointer arrow */}
-              <div className="absolute top-2 z-20">
-                <div className="w-0 h-0 border-l-[14px] border-r-[14px] border-t-[28px] border-l-transparent border-r-transparent border-t-[#f5a623] drop-shadow-lg" />
+            <div className="relative">
+              {/* Pointer arrow - fixed at top center */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-20">
+                <div className="w-0 h-0 border-l-[12px] border-r-[12px] border-t-[24px] border-l-transparent border-r-transparent border-t-[#f5a623] drop-shadow-lg" />
               </div>
 
-              {/* Wheel */}
+              {/* Canvas wheel with CSS rotation */}
               <div
-                ref={wheelRef}
-                className="relative w-64 h-64 md:w-72 md:h-72 rounded-full border-4 border-[#f5a623]/40 shadow-2xl shadow-[#f5a623]/10"
+                className="w-[280px] h-[280px]"
                 style={{
                   transform: `rotate(${rotation}deg)`,
                   transition: spinning
@@ -186,57 +286,14 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
                     : 'none',
                 }}
               >
-                {prizes.map((prize, idx) => {
-                  const startAngle = idx * anglePerPrize;
-                  const color = RARITY_COLORS[prize.rarity] || RARITY_COLORS.common;
-                  const bgGradient = RARITY_BG[prize.rarity] || RARITY_BG.common;
-                  const icon = PRIZE_TYPE_ICONS[prize.type] || '?';
-
-                  return (
-                    <div
-                      key={prize.id}
-                      className="absolute inset-0"
-                      style={{
-                        clipPath: `polygon(50% 50%, ${50 + 50 * Math.cos(((startAngle - 90) * Math.PI) / 180)}% ${50 + 50 * Math.sin(((startAngle - 90) * Math.PI) / 180)}%, ${50 + 50 * Math.cos(((startAngle + anglePerPrize - 90) * Math.PI) / 180)}% ${50 + 50 * Math.sin(((startAngle + anglePerPrize - 90) * Math.PI) / 180)}%)`,
-                        background: `linear-gradient(135deg, ${color}15, ${color}30)`,
-                      }}
-                    >
-                      {/* Prize label */}
-                      <div
-                        className="absolute flex flex-col items-center justify-center text-center"
-                        style={{
-                          top: '22%',
-                          left: '50%',
-                          transform: `rotate(${startAngle + anglePerPrize / 2}deg) translateX(-50%)`,
-                          transformOrigin: '0 120px',
-                          color: color,
-                        }}
-                      >
-                        <span className="text-lg font-bold leading-none">{icon}</span>
-                        <span className="text-[10px] font-medium mt-0.5 leading-tight max-w-[60px] truncate">
-                          {prize.name}
-                        </span>
-                      </div>
-                      {/* Separator line */}
-                      <div
-                        className="absolute top-1/2 left-1/2 w-px h-1/2 origin-top"
-                        style={{
-                          background: `linear-gradient(to bottom, ${color}60, transparent)`,
-                          transform: `rotate(${startAngle}deg)`,
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-
-                {/* Center circle */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-[#f5a623] to-[#e94560] border-4 border-[#0a0a1a] shadow-lg flex items-center justify-center z-10">
-                  <Zap className="w-6 h-6 text-white" />
-                </div>
+                <canvas
+                  ref={canvasRef}
+                  className="w-full h-full rounded-full"
+                />
               </div>
-            </>
+            </div>
           ) : (
-            <div className="w-64 h-64 rounded-full bg-[#1a1a2e] border border-[#f5a623]/20 flex items-center justify-center text-center p-8">
+            <div className="w-[280px] h-[280px] rounded-full bg-[#1a1a2e] border border-[#f5a623]/20 flex items-center justify-center text-center p-8">
               <p className="text-[#8892b0]">No active wheel activity</p>
             </div>
           )}
@@ -244,13 +301,13 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
 
         {/* Error */}
         {error && (
-          <p className="text-center text-sm text-[#e94560] bg-[#e94560]/10 mx-6 px-3 py-2 rounded-lg">{error}</p>
+          <p className="text-center text-sm text-[#e94560] bg-[#e94560]/10 mx-4 px-3 py-2 rounded-lg">{error}</p>
         )}
 
         {/* Spin buttons */}
         {state && prizes.length > 0 && !showResult && (
-          <div className="flex flex-col items-center gap-2 px-6 pb-4">
-            <div className="flex gap-3 w-full">
+          <div className="flex flex-col items-center gap-2 px-4 pb-3">
+            <div className="flex gap-3 w-full max-w-[320px]">
               {state.remaining_free > 0 && (
                 <Button
                   onClick={() => handleSpin(true)}
@@ -292,7 +349,7 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
 
         {/* Result display */}
         {showResult && spinResult && (
-          <div className="px-6 pb-4">
+          <div className="px-4 pb-3">
             <div className={`rounded-xl p-4 border ${
               spinResult.prize.type === 'empty'
                 ? 'bg-[#1a1a2e] border-[#8892b0]/20'
@@ -328,9 +385,9 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
 
         {/* History */}
         {state && state.history.length > 0 && (
-          <div className="px-6 pb-4">
+          <div className="px-4 pb-4">
             <h3 className="text-xs font-medium text-[#8892b0] mb-2 uppercase tracking-wider">Recent Wins</h3>
-            <div className="space-y-1 max-h-32 overflow-y-auto">
+            <div className="space-y-1 max-h-28 overflow-y-auto">
               {state.history.map((h, i) => (
                 <div key={i} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-[#1a1a2e]/60">
                   <span style={{ color: RARITY_COLORS[h.prize_rarity] || '#8892b0' }}>
