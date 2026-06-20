@@ -79,7 +79,7 @@ export default function BannerCarousel() {
   }, [next]);
 
   return (
-    <section className="relative w-full overflow-hidden rounded-xl mt-16 md:mt-20">
+    <section className="relative w-full overflow-hidden rounded-xl">
       {usingDemo && <div className="absolute top-3 left-3 z-10"><DemoBadge show label="Demo Banners" /></div>}
       <div className="relative aspect-[16/6] sm:aspect-[16/7] md:aspect-[16/8] bg-[#1a1a2e]">
         {banners.map((banner, index) => (
