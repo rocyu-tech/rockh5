@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import BannerCarousel from '@/components/BannerCarousel';
 import GameCategories from '@/components/GameCategories';
@@ -13,17 +13,9 @@ import LoginModal from '@/components/LoginModal';
 import RegisterModal from '@/components/RegisterModal';
 import ConnectionBanner from '@/components/ConnectionBanner';
 import { useAuthStore } from '@/store/auth';
-import { useApiStatus } from '@/lib/api-status';
+import { useApiStatus, ApiStatusContext } from '@/lib/api-status';
 import { Gem, Gamepad2, Gift, TrendingUp, Users, Trophy, Star, Shield } from 'lucide-react';
 
-// Shared context so child components can report API status
-export const ApiStatusContext = createContext<ReturnType<typeof useApiStatus> | null>(null);
-
-export function useApiStatusContext() {
-  const ctx = useContext(ApiStatusContext);
-  if (!ctx) throw new Error('useApiStatusContext must be used within ApiStatusContext.Provider');
-  return ctx;
-}
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState('home');

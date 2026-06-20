@@ -1,7 +1,17 @@
 import { useState, useCallback, useRef } from 'react';
+import { createContext, useContext } from 'react';
 import { toast } from 'sonner';
 
 export type ApiStatus = 'unknown' | 'online' | 'offline' | 'partial';
+
+// Re-export context and hook so all components can import from one place
+export const ApiStatusContext = createContext<ReturnType<typeof useApiStatus> | null>(null);
+
+export function useApiStatusContext() {
+  const ctx = useContext(ApiStatusContext);
+  if (!ctx) throw new Error('useApiStatusContext must be used within ApiStatusContext.Provider');
+  return ctx;
+}
 
 /**
  * Track backend API connectivity and show user-friendly toast notifications.
