@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     root: "/data/src/rockh5",
   },
   reactStrictMode: false,
+  allowedDevOrigins: ["*"],
   async rewrites() {
     return [
       {
