@@ -12,6 +12,7 @@ import Footer from '@/components/Footer';
 import LoginModal from '@/components/LoginModal';
 import RegisterModal from '@/components/RegisterModal';
 import ConnectionBanner from '@/components/ConnectionBanner';
+import ProfileModal from '@/components/ProfileModal';
 import { useAuthStore } from '@/store/auth';
 import { useApiStatus, ApiStatusContext } from '@/lib/api-status';
 import { Gem, Gamepad2, Gift, TrendingUp, Users, Trophy, Star, Shield } from 'lucide-react';
@@ -23,6 +24,7 @@ export default function Home() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [spinOpen, setSpinOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const { hydrate, isLoggedIn } = useAuthStore();
   const apiStatus = useApiStatus();
 
@@ -34,6 +36,14 @@ export default function Home() {
       setLoginOpen(true);
     };
     window.addEventListener('auth:logout', handleAuthLogout);
+
+    // Listen for nav events from Navbar
+    const handleOpenProfile = () => setProfileOpen(true);
+    window.addEventListener('nav:open-profile', handleOpenProfile);
+    return () => {
+      window.removeEventListener('auth:logout', handleAuthLogout);
+      window.removeEventListener('nav:open-profile', handleOpenProfile);
+    };
     return () => window.removeEventListener('auth:logout', handleAuthLogout);
   }, [hydrate]);
 

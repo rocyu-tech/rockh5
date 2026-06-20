@@ -132,11 +132,17 @@ export default function Navbar({ activeSection, onSectionChange, onLoginClick, o
                     align="end"
                     className="w-56 bg-[#1a1a2e] border-[#f5a623]/20"
                   >
-                    <DropdownMenuItem className="text-[#ccd6f6] focus:bg-[#f5a623]/10 focus:text-[#f5a623]">
+                    <DropdownMenuItem onSelect={() => {
+                      const evt = new CustomEvent("nav:open-profile");
+                      window.dispatchEvent(evt);
+                    }} className="text-[#ccd6f6] focus:bg-[#f5a623]/10 focus:text-[#f5a623] cursor-pointer">
                       <User className="mr-2 h-4 w-4" />
                       Profile
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-[#ccd6f6] focus:bg-[#f5a623]/10 focus:text-[#f5a623]">
+                    <DropdownMenuItem onSelect={() => {
+                      const evt = new CustomEvent("nav:open-profile");
+                      window.dispatchEvent(evt);
+                    }} className="text-[#ccd6f6] focus:bg-[#f5a623]/10 focus:text-[#f5a623] cursor-pointer">
                       <TrendingUp className="mr-2 h-4 w-4" />
                       Transaction History
                     </DropdownMenuItem>
