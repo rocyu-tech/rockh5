@@ -73,7 +73,8 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
     if (prizes.length === 0) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const displaySize = 280; // display pixels
+    const container = canvas.parentElement;
+    const displaySize = container ? container.clientWidth : 280;
     canvas.width = displaySize * dpr;
     canvas.height = displaySize * dpr;
     canvas.style.width = `${displaySize}px`;
@@ -266,11 +267,11 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
         {/* Wheel area */}
         <div className="flex flex-col items-center py-3 px-4">
           {loading ? (
-            <div className="w-[280px] h-[280px] rounded-full bg-[#1a1a2e] border border-[#f5a623]/20 flex items-center justify-center">
+            <div className="w-full max-w-[280px] aspect-square rounded-full bg-[#1a1a2e] border border-[#f5a623]/20 flex items-center justify-center">
               <Loader2 className="w-8 h-8 text-[#f5a623] animate-spin" />
             </div>
           ) : prizes.length > 0 ? (
-            <div className="relative">
+            <div className="relative w-full max-w-[280px] aspect-square">
               {/* Pointer arrow - fixed at top center */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-20">
                 <div className="w-0 h-0 border-l-[12px] border-r-[12px] border-t-[24px] border-l-transparent border-r-transparent border-t-[#f5a623] drop-shadow-lg" />
@@ -278,7 +279,7 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
 
               {/* Canvas wheel with CSS rotation */}
               <div
-                className="w-[280px] h-[280px]"
+                className="w-full h-full"
                 style={{
                   transform: `rotate(${rotation}deg)`,
                   transition: spinning

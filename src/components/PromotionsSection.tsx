@@ -125,7 +125,7 @@ export default function PromotionsSection({ onSpinClick }: PromotionsSectionProp
             <p className="text-sm text-[#8892b0] mb-4 line-clamp-2">
               Spin the wheel daily for a chance to win bonus, coins and exclusive prizes!
             </p>
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-[#f5a623] to-[#e94560] text-white text-sm font-semibold shadow-lg shadow-[#f5a623]/30 group-hover:shadow-[#f5a623]/50 transition-all">
+            <div className="inline-flex items-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-[#f5a623] to-[#e94560] text-white text-sm font-semibold shadow-lg shadow-[#f5a623]/30 group-hover:shadow-[#f5a623]/50 transition-all">
               <RotateCw className="w-4 h-4 group-hover:animate-spin" style={{ animationDuration: '1s' }} />
               Spin Now
             </div>

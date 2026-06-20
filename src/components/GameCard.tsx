@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Play, Flame, Star, Sparkles } from 'lucide-react';
-import type { Game } from '@/lib/api';
+import { Play, Flame, Star, Sparkles } from 'lucide-react';
+import { gameApi, type Game } from '@/lib/api';
 
 const gameGradients = [
   'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -25,12 +25,35 @@ interface GameCardProps {
 
 export default function GameCard({ game }: GameCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [launching, setLaunching] = useState(false);
+
+  const handlePlay = async () => {
+    if (launching) return;
+    setLaunching(true);
+    try {
+      const res = await gameApi.launch(game.id);
+      const gameUrl = res.data?.data?.game_url;
+      if (gameUrl) {
+        window.open(gameUrl, '_blank');
+      }
+    } catch (err) {
+      console.error('[GameCard] launch error:', err);
+    } finally {
+      setLaunching(false);
+    }
+  };
+
+  // On mobile, tap toggles overlay; on desktop, hover shows overlay
+  const handleToggle = () => {
+    setIsHovered((prev) => !prev);
+  };
 
   return (
     <div
       className="group relative rounded-xl overflow-hidden bg-[#1a1a2e] border border-[#f5a623]/10 hover:border-[#f5a623]/30 transition-all duration-300 hover:shadow-lg hover:shadow-[#f5a623]/10 cursor-pointer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={handleToggle}
     >
       {/* Thumbnail */}
       <div
@@ -67,14 +90,23 @@ export default function GameCard({ game }: GameCardProps) {
           )}
         </div>
 
-        {/* Play overlay on hover */}
+        {/* Play overlay - shows on hover (desktop) or tap (mobile) */}
         <div
           className={`absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${
             isHovered ? 'opacity-100' : 'opacity-0'
           }`}
+          onClick={(e) => e.stopPropagation()}
         >
-          <button className="w-12 h-12 rounded-full bg-gradient-to-r from-[#f5a623] to-[#e8a910] flex items-center justify-center shadow-lg shadow-[#f5a623]/30 hover:scale-110 transition-transform">
-            <Play className="w-5 h-5 text-[#0a0a1a] ml-0.5" fill="#0a0a1a" />
+          <button
+            onClick={handlePlay}
+            disabled={launching}
+            className="w-14 h-14 rounded-full bg-gradient-to-r from-[#f5a623] to-[#e8a910] flex items-center justify-center shadow-lg shadow-[#f5a623]/30 hover:scale-110 active:scale-95 transition-transform disabled:opacity-50"
+          >
+            {launching ? (
+              <div className="w-5 h-5 border-2 border-[#0a0a1a]/30 border-t-[#0a0a1a] rounded-full animate-spin" />
+            ) : (
+              <Play className="w-5 h-5 text-[#0a0a1a] ml-0.5" fill="#0a0a1a" />
+            )}
           </button>
         </div>
       </div>

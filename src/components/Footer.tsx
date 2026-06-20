@@ -37,7 +37,7 @@ export default function Footer() {
               {socialLinks.map((social) => (
                 <button
                   key={social.name}
-                  className="w-9 h-9 rounded-lg bg-[#1a1a2e] border border-[#f5a623]/10 flex items-center justify-center hover:border-[#f5a623]/30 hover:bg-[#16213e] transition-all"
+                  className="w-11 h-11 rounded-lg bg-[#1a1a2e] border border-[#f5a623]/10 flex items-center justify-center hover:border-[#f5a623]/30 hover:bg-[#16213e] transition-all active:scale-95"
                   aria-label={social.name}
                 >
                   <span className="text-sm">{social.icon}</span>
@@ -55,7 +55,7 @@ export default function Footer() {
               <ul className="space-y-2.5">
                 {links.map((link) => (
                   <li key={link}>
-                    <button className="text-sm text-[#8892b0] hover:text-[#ccd6f6] transition-colors">
+                    <button className="text-sm text-[#8892b0] hover:text-[#ccd6f6] transition-colors py-1.5 text-left active:text-[#f5a623]">
                       {link}
                     </button>
                   </li>

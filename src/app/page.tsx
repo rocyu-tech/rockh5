@@ -189,7 +189,7 @@ export default function Home() {
         {/* Agent Section */}
         <section id="agent" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16 md:mt-20">
           <div className="rounded-2xl overflow-hidden border border-[#f5a623]/20">
-            <div className="relative p-8 md:p-12 bg-gradient-to-r from-[#1a1a2e] via-[#16213e] to-[#1a1a2e]">
+            <div className="relative p-5 sm:p-6 md:p-12 bg-gradient-to-r from-[#1a1a2e] via-[#16213e] to-[#1a1a2e]">
               {/* Decorative elements */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-[#f5a623]/5 rounded-full blur-[60px]" />
               <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#e94560]/5 rounded-full blur-[60px]" />

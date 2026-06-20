@@ -229,7 +229,7 @@ export default function TransactionHistory({ open, onOpenChange }: TransactionHi
             <button
               onClick={() => handlePageChange(page - 1)}
               disabled={page <= 1}
-              className="p-2 rounded-lg bg-[#1a1a2e] hover:bg-[#1a1a2e]/80 disabled:opacity-30 transition-colors"
+              className="w-11 h-11 rounded-lg bg-[#1a1a2e] hover:bg-[#1a1a2e]/80 disabled:opacity-30 transition-colors"
             >
               <ChevronLeft className="w-4 h-4 text-[#8892b0]" />
             </button>
@@ -239,7 +239,7 @@ export default function TransactionHistory({ open, onOpenChange }: TransactionHi
             <button
               onClick={() => handlePageChange(page + 1)}
               disabled={page >= totalPages}
-              className="p-2 rounded-lg bg-[#1a1a2e] hover:bg-[#1a1a2e]/80 disabled:opacity-30 transition-colors"
+              className="w-11 h-11 rounded-lg bg-[#1a1a2e] hover:bg-[#1a1a2e]/80 disabled:opacity-30 transition-colors"
             >
               <ChevronRight className="w-4 h-4 text-[#8892b0]" />
             </button>

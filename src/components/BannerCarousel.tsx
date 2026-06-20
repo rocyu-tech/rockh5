@@ -79,7 +79,7 @@ export default function BannerCarousel() {
   }, [next]);
 
   return (
-    <section className="relative w-full overflow-hidden rounded-xl mx-4 sm:mx-6 lg:mx-auto lg:max-w-7xl mt-20 md:mt-22">
+    <section className="relative w-full overflow-hidden rounded-xl mt-16 md:mt-20">
       {usingDemo && <div className="absolute top-3 left-3 z-10"><DemoBadge show label="Demo Banners" /></div>}
       <div className="relative aspect-[16/6] sm:aspect-[16/7] md:aspect-[16/8] bg-[#1a1a2e]">
         {banners.map((banner, index) => (
@@ -136,14 +136,14 @@ export default function BannerCarousel() {
         {/* Prev/Next buttons */}
         <button
           onClick={prev}
-          className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-black/60 transition-all"
+          className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-black/60 transition-all"
           aria-label="Previous banner"
         >
           <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
         <button
           onClick={next}
-          className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-black/60 transition-all"
+          className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-black/60 transition-all"
           aria-label="Next banner"
         >
           <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />

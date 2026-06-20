@@ -43,10 +43,10 @@ export default function ConnectionBanner({ isOffline, failedCount, status, onDis
             setDismissed(true);
             onDismiss();
           }}
-          className="p-1 hover:bg-white/20 rounded-full transition-colors"
+          className="p-2 hover:bg-white/20 rounded-full transition-colors -mr-1"
           aria-label="Dismiss notification"
         >
-          <X className="w-3.5 h-3.5 text-white/80" />
+          <X className="w-4 h-4 text-white/80" />
         </button>
       </div>
     </div>
