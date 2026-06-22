@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useApiStatus, ApiStatusContext } from '@/lib/api-status';
 import { useAuthStore } from '@/store/auth';
 import LoginModal from '@/components/LoginModal';
@@ -17,17 +17,30 @@ export default function AppProvider({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     hydrate();
+  }, [hydrate]);
 
-    const handleAuthLogout = () => setLoginOpen(true);
-    const handleOpenSpin = () => {
-      if (isLoggedIn) {
-        setSpinOpen(true);
-      } else {
-        setLoginOpen(true);
-      }
-    };
-    const handleOpenRegister = () => setRegisterOpen(true);
+  const handleAuthLogout = useCallback(() => {
+    // Only show login modal if not already logged in
+    // This prevents re-opening the login modal right after successful login
+    // when a delayed 401 response triggers auth:logout
+    const { isLoggedIn: currentlyLoggedIn } = useAuthStore.getState();
+    if (!currentlyLoggedIn) {
+      setLoginOpen(true);
+    }
+  }, []);
 
+  const handleOpenSpin = useCallback(() => {
+    const { isLoggedIn: currentlyLoggedIn } = useAuthStore.getState();
+    if (currentlyLoggedIn) {
+      setSpinOpen(true);
+    } else {
+      setLoginOpen(true);
+    }
+  }, []);
+
+  const handleOpenRegister = useCallback(() => setRegisterOpen(true), []);
+
+  useEffect(() => {
     window.addEventListener('auth:logout', handleAuthLogout);
     window.addEventListener('nav:open-spin', handleOpenSpin);
     window.addEventListener('nav:open-register', handleOpenRegister);
@@ -37,7 +50,7 @@ export default function AppProvider({ children }: { children: React.ReactNode })
       window.removeEventListener('nav:open-spin', handleOpenSpin);
       window.removeEventListener('nav:open-register', handleOpenRegister);
     };
-  }, [hydrate, isLoggedIn]);
+  }, [handleAuthLogout, handleOpenSpin, handleOpenRegister]);
 
   const switchToRegister = () => {
     setLoginOpen(false);
