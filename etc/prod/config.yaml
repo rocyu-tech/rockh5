@@ -1,0 +1,96 @@
+app:
+  name: rockgame
+  env: prod
+  version: 1.0.0
+  region: us-east-1
+  language: en
+
+server:
+  addr: ":8080"
+  read_timeout: 15
+  write_timeout: 15
+  mode: release
+
+# NOTE: TLS/HTTPS should be handled by the reverse proxy (nginx/Caddy).
+# Never expose Go services directly to the internet.
+# Set CORS_ORIGINS and GATE_HMAC_SECRET as environment variables.
+
+# Per-service default ports (override with -port flag)
+services:
+  ports:
+    gate:           8080
+    account-node:   8001
+    lobby-node:     8201
+    game-node:      8101
+    event-node:     8301
+    activity-mesh:  9001
+    shop-mesh:      9101
+    vip-mesh:       9201
+    task-mesh:      9301
+    mail-mesh:      9401
+    rank-mesh:      9501
+    agent-mesh:     9601
+    item-mesh:      9701
+    tag-mesh:       9801
+    reddot-mesh:    9901
+    admin-node:     8501
+
+database:
+  host: rm-xxx.mysql.rds.aliyuncs.com
+  port: 3306
+  user: rockgame
+  password: ${DB_PASSWORD}
+  db_name: rockgame
+  max_open_conns: 200
+  max_idle_conns: 50
+  max_lifetime: 1800
+  shard_count: 16
+
+log_db:
+  host: rm-xxx.mysql.rds.aliyuncs.com
+  port: 3306
+  user: rockgame
+  password: ${DB_PASSWORD}
+  db_name: rockgame_log
+  max_open_conns: 20
+  max_idle_conns: 10
+  max_lifetime: 1800
+
+redis:
+  addr: r-xxx.redis.rds.aliyuncs.com:6379
+  password: ${REDIS_PASSWORD}
+  db: 0
+  pool_size: 500
+
+etcd:
+  addrs:
+    - etcd.internal:2379
+  dial_timeout: 5
+
+log:
+  level: info
+  format: json
+  output: both                    # stdout | file | both (file+stdout)
+  file: /var/log/rockgame/app.log # 日志根目录 (实际路径: {file_dir}/{date}/{service}.{node}.log)
+                                    # 例如: /var/log/rockgame/2026-06-08/gate.0.log
+  max_size_mb: 200                # max size per file in MB before rotation
+  max_backups: 30                 # keep up to 30 old log files
+  max_age_days: 90                 # delete log files older than 90 days
+  compress: true                   # gzip compress rotated files
+
+jwt:
+  secret: "${JWT_SECRET}"  # backward-compat single key
+  # For key rotation, use secrets array (takes priority over secret):
+  # secrets:
+  #   - "${JWT_SECRET_CURRENT}"   # index 0 = current signing key
+  #   - "${JWT_SECRET_PREVIOUS}"  # index 1+ = old keys (grace period for existing tokens)
+  access_ttl: 15
+  refresh_ttl: 7
+  session_ttl: 5
+  issuer: rockgame
+
+# Gate routing configuration (fallback defaults when etcd dynamic routing is unavailable)
+# In production, routes are primarily managed via etcd dynamic routing.
+gate:
+  routes: []  # prod: routes managed by etcd, YAML fallback is empty
+  hmac_secret: ${GATE_HMAC_SECRET}  # HMAC-SHA256 secret for Gate→backend service auth

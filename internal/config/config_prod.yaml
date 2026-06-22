@@ -1,0 +1,56 @@
+app:
+  name: rockgame
+  env: prod
+  version: 1.0.0
+  region: us-east-1
+  language: en
+
+server:
+  addr: ":8080"
+  read_timeout: 15
+  write_timeout: 15
+  mode: release
+
+database:
+  host: rm-xxx.mysql.rds.aliyuncs.com
+  port: 3306
+  user: rockgame
+  password: ${DB_PASSWORD}
+  db_name: rockgame
+  max_open_conns: 200
+  max_idle_conns: 50
+  max_lifetime: 1800
+  shard_count: 16
+
+log_db:
+  host: rm-xxx.mysql.rds.aliyuncs.com
+  port: 3306
+  user: rockgame
+  password: ${DB_PASSWORD}
+  db_name: rockgame_log
+  max_open_conns: 20
+  max_idle_conns: 10
+  max_lifetime: 1800
+
+redis:
+  addr: r-xxx.redis.rds.aliyuncs.com:6379
+  password: ${REDIS_PASSWORD}
+  db: 0
+  pool_size: 500
+
+etcd:
+  addrs:
+    - etcd.internal:2379
+  dial_timeout: 5
+
+log:
+  level: info
+  format: json
+  output: stdout
+
+jwt:
+  secret: ${JWT_SECRET}
+  access_ttl: 15
+  refresh_ttl: 7
+  session_ttl: 5
+  issuer: rockgame

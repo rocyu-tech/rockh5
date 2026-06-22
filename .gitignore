@@ -19,11 +19,28 @@ yarn-debug.log*
 yarn-error.log*
 *.tsbuildinfo
 
-# Go
-account admin bootstrap lobby bin/
-*.exe *.dll *.so *.dylib *.test *.out
-go.work go.work.sum
+# Go binaries & build outputs
+account/
+admin/
+bootstrap/
+lobby/
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
+
+# IDE & temp
+tool-results/
+.initial_snapshot.json
+.zscripts/
+dashboard_full.png
+dashboard_logged_in.png
+dashboard_scrolled.png
 
 # Cache
 .cache/
---timeout

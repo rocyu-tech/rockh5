@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+"""SSH proxy that translates git SSH commands to HTTPS git-over-http protocol."""
+import subprocess, sys, os, re
+
+args = sys.argv[1:]
+host = None; command = None; skip_next = False
+for i, a in enumerate(args):
+    if skip_next: skip_next = False; continue
+    if a in ('-o','-p','-i','-F','-c','-l','-b','-D','-J','--'): skip_next = True; continue
+    if a.startswith('-'): continue
+    if host is None and '@' in a: host = a.split('@',1)[1]; continue
+    if command is None and a.startswith("'"): command = a.strip("'\"")
+
+if host == 'github.com' and command:
+    m = re.search(r"(git-[a-z-]+)\s+['\"]?([^'\"\\s]+)", command)
+    if m:
+        print(f"Proxying SSH git command to HTTPS is not directly supported.", file=sys.stderr)
+        print(f"Please set remote URL to HTTPS and use a GitHub token.", file=sys.stderr)
+        sys.exit(1)
+
+try: os.execvp('ssh', ['ssh'] + args)
+except FileNotFoundError:
+    print("Error: No SSH available", file=sys.stderr)
+    sys.exit(1)

@@ -1,0 +1,145 @@
+app:
+  name: rockgame
+  env: dev
+  version: 1.0.0
+  region: default
+  language: en
+
+server:
+  addr: ":8080"
+  read_timeout: 30
+  write_timeout: 30
+  mode: debug
+
+# Per-service default ports (override with -port flag)
+services:
+  ports:
+    gate:           8880
+    account-node:   8001
+    lobby-node:     8201
+    game-node:      8101
+    event-node:     8301
+    activity-mesh:  9001
+    shop-mesh:      9101
+    vip-mesh:       9201
+    task-mesh:      9301
+    mail-mesh:      9401
+    rank-mesh:      9501
+    agent-mesh:     9601
+    item-mesh:      9701
+    tag-mesh:       9801
+    reddot-mesh:    9901
+    admin-node:     8501
+
+database:
+  host: 127.0.0.1
+  port: 3306
+  user: rockgame
+  password: rockgame123
+  db_name: rockgame
+  max_open_conns: 50
+  max_idle_conns: 10
+  max_lifetime: 3600
+  shard_count: 16
+
+log_db:
+  host: 127.0.0.1
+  port: 3306
+  user: rockgame
+  password: rockgame123
+  db_name: rockgame_log
+  max_open_conns: 10
+  max_idle_conns: 5
+  max_lifetime: 3600
+
+redis:
+  addr: 127.0.0.1:6379
+  password: ""
+  db: 0
+  pool_size: 100
+
+etcd:
+  addrs:
+    - 127.0.0.1:2379
+  dial_timeout: 5
+
+log:
+  level: debug
+  format: console
+  output: both           # stdout | file | both (file+stdout)
+  file: ./logs/app.log   # 日志根目录 (实际路径: {file_dir}/{date}/{service}.{node}.log)
+                         # 例如: ./logs/2026-06-08/gate.0.log
+  max_size_mb: 100        # max size per file in MB before rotation
+  max_backups: 30         # keep up to 30 old log files
+  max_age_days: 90        # delete log files older than 90 days
+  compress: true          # gzip compress rotated files
+
+jwt:
+  secret: "dev-jwt-secret-change-in-production"
+  # For key rotation, use secrets array instead of single secret:
+  # secrets:
+  #   - "${JWT_SECRET_CURRENT}"   # index 0 = current signing key
+  #   - "${JWT_SECRET_PREVIOUS}"  # index 1 = previous key (grace period)
+  access_ttl: 15
+  refresh_ttl: 7
+  session_ttl: 5
+  issuer: rockgame
+
+# Gate routing configuration (fallback defaults when etcd dynamic routing is unavailable)
+gate:
+  routes:
+    # Public routes (no JWT required)
+    - prefix: "/api/v1/auth"
+      backend: "account-node"
+      auth: false
+    - prefix: "/api/v1/wallet"
+      backend: "game-node"
+      auth: true
+    # Authenticated routes (JWT required)
+    - prefix: "/api/v1/account"
+      backend: "account-node"
+      auth: true
+    - prefix: "/api/v1/lobby"
+      backend: "lobby-node"
+      auth: false
+    - prefix: "/api/v1/game"
+      backend: "game-node"
+      auth: false
+    - prefix: "/api/v1/event"
+      backend: "event-node"
+      auth: true
+    - prefix: "/api/v1/activity"
+      backend: "activity-mesh"
+      auth: true
+    - prefix: "/api/v1/shop"
+      backend: "shop-mesh"
+      auth: true
+    - prefix: "/api/v1/vip"
+      backend: "vip-mesh"
+      auth: true
+    - prefix: "/api/v1/task"
+      backend: "task-mesh"
+      auth: true
+    - prefix: "/api/v1/mail"
+      backend: "mail-mesh"
+      auth: true
+    - prefix: "/api/v1/rank"
+      backend: "rank-mesh"
+      auth: true
+    - prefix: "/api/v1/agent"
+      backend: "agent-mesh"
+      auth: true
+    - prefix: "/api/v1/item"
+      backend: "item-mesh"
+      auth: true
+    - prefix: "/api/v1/tag"
+      backend: "tag-mesh"
+      auth: true
+    - prefix: "/api/v1/reddot"
+      backend: "reddot-mesh"
+      auth: true
+    # Admin routes (admin-node handles its own auth internally)
+    - prefix: "/api/v1/admin"
+      backend: "admin-node"
+      auth: false
+  hmac_secret: ""  # dev: empty = trust X-User-ID without HMAC verification
