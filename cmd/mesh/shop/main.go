@@ -1,194 +1,178 @@
 package main
 
 import (
-	"flag"
-	"time"
+        "flag"
+        "time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/compress"
-	"github.com/rocyu-tech/rockgame/internal/config"
-	bizerr "github.com/rocyu-tech/rockgame/internal/errors"
-	"github.com/rocyu-tech/rockgame/internal/handler"
-	"github.com/rocyu-tech/rockgame/internal/middleware"
-	"github.com/rocyu-tech/rockgame/pkg/cache"
-	"github.com/rocyu-tech/rockgame/pkg/database"
-	"github.com/rocyu-tech/rockgame/pkg/logger"
-	"github.com/rocyu-tech/rockgame/pkg/registry"
-	"github.com/rocyu-tech/rockgame/pkg/server"
+        "github.com/gofiber/fiber/v2"
+        "github.com/gofiber/fiber/v2/middleware/compress"
+        "github.com/rocyu-tech/rockgame/internal/config"
+        bizerr "github.com/rocyu-tech/rockgame/internal/errors"
+        "github.com/rocyu-tech/rockgame/internal/handler"
+        "github.com/rocyu-tech/rockgame/internal/middleware"
+        "github.com/rocyu-tech/rockgame/pkg/database"
+        "github.com/rocyu-tech/rockgame/pkg/logger"
+        "github.com/rocyu-tech/rockgame/pkg/registry"
+        "github.com/rocyu-tech/rockgame/pkg/server"
+        "github.com/rocyu-tech/rockgame/pkg/snowflake"
 )
 
 const serviceName = "shop"
 
 // Build-time variables (set via -ldflags)
 var (
-	BuildTime string
-	GitCommit string
+        BuildTime string
+        GitCommit string
 )
 
 func main() {
-	configPath := flag.String("config", "etc/dev/config.yaml", "config file path")
-	nodeID := flag.Int("node", 0, "node ID")
-	port := flag.Int("port", 0, "service port (0 = use config services.ports + nodeID offset)")
-	flag.Parse()
+        configPath := flag.String("config", "etc/dev/config.yaml", "config file path")
+        nodeID := flag.Int("node", 0, "node ID")
+        port := flag.Int("port", 0, "service port (0 = use config services.ports + nodeID offset)")
+        flag.Parse()
 
-	cfg := config.MustLoad(*configPath)
+        cfg := config.MustLoad(*configPath)
 
-	// Initialize database
-	if err := database.Init(&cfg.Database); err != nil {
-		logger.Fatalf("%s: database init failed: %v", serviceName, err)
-	}
-	logger.Infof("%s: database connected", serviceName)
+        // Resolve actual port: CLI flag > config + nodeID offset
+        etcdSvcName := serviceName + "-mesh"
+        actualPort := *port
+        if actualPort == 0 {
+                actualPort = cfg.Port(etcdSvcName) + *nodeID
+        }
+        if actualPort == 0 {
+                logger.Fatalf("%s: port not configured, specify -port flag or set services.ports.%s in config", serviceName, etcdSvcName)
+        }
+        logger.InitFromConfig(&logger.LogConfig{
+                Level:      cfg.Log.Level,
+                Format:     cfg.Log.Format,
+                Output:     cfg.Log.Output,
+                File:       cfg.Log.File,
+                MaxSizeMB:  cfg.Log.MaxSizeMB,
+                MaxBackups: cfg.Log.MaxBackups,
+                MaxAgeDays: cfg.Log.MaxAgeDays,
+                Compress:    cfg.Log.Compress,
+                ServiceName: serviceName,
+                NodeID:      *nodeID,
+        })
+        defer logger.Sync()
 
-	// Initialize Redis (optional — degrades gracefully)
-	if err := cache.Init(&cfg.Redis); err != nil {
-		logger.Warnf("%s: redis init failed: %v (continuing without cache)", serviceName, err)
-	} else {
-		logger.Infof("%s: redis connected", serviceName)
-	}
+        // Initialize database
+        if err := database.Init(&cfg.Database); err != nil {
+                logger.Fatalf("%s: failed to connect database: %v", serviceName, err)
+        }
+        logger.Infof("%s: database connected [%s:%d/%s]", serviceName, cfg.Database.Host, cfg.Database.Port, cfg.Database.DBName)
 
-	// Resolve actual port
-	etcdSvcName := serviceName + "-mesh"
-	actualPort := *port
-	if actualPort == 0 {
-		actualPort = cfg.Port(etcdSvcName) + *nodeID
-	}
-	if actualPort == 0 {
-		logger.Fatalf("%s: port not configured", serviceName)
-	}
-	logger.InitFromConfig(&logger.LogConfig{
-		Level:       cfg.Log.Level,
-		Format:      cfg.Log.Format,
-		Output:      cfg.Log.Output,
-		File:        cfg.Log.File,
-		MaxSizeMB:   cfg.Log.MaxSizeMB,
-		MaxBackups:  cfg.Log.MaxBackups,
-		MaxAgeDays:  cfg.Log.MaxAgeDays,
-		Compress:    cfg.Log.Compress,
-		ServiceName: serviceName,
-		NodeID:      *nodeID,
-	})
-	defer logger.Sync()
+        // Initialize snowflake ID generator
+        snowflake.Init(int64(*nodeID))
 
-	logger.Infof("Starting %s [env=%s node=%d] version=%s built=%s", serviceName, cfg.App.Env, *nodeID, GitCommit, BuildTime)
+        logger.Infof("Starting %s [env=%s node=%d] version=%s built=%s", serviceName, cfg.App.Env, *nodeID, GitCommit, BuildTime)
 
-	// Register with etcd
-	var reg *registry.EtcdRegistry
-	if regTmp, err := registry.NewEtcdRegistry(cfg.Etcd.Addrs); err != nil {
-		logger.Warnf("%s: etcd connect failed: %v", serviceName, err)
-	} else {
-		reg = regTmp
-		hostIP := registry.ExtractHostIP(cfg.Server.Addr)
-		svcAddr := registry.BuildAddr(hostIP, actualPort)
-		inst := registry.ServiceInstance{
-			Name:   etcdSvcName,
-			ID:     registry.ServiceID(etcdSvcName, *nodeID),
-			Addr:   svcAddr,
-			Port:   actualPort,
-			NodeID: *nodeID,
-		}
-		if err := reg.Register(inst); err != nil {
-			logger.Warnf("%s: etcd register failed: %v", serviceName, err)
-		}
-	}
+        // Register with etcd for service discovery
+        var reg *registry.EtcdRegistry
+        if regTmp, err := registry.NewEtcdRegistry(cfg.Etcd.Addrs); err != nil {
+                logger.Warnf("%s: etcd connect failed: %v (service still starts)", serviceName, err)
+        } else {
+                reg = regTmp
+                hostIP := registry.ExtractHostIP(cfg.Server.Addr)
+                svcAddr := registry.BuildAddr(hostIP, actualPort)
+                inst := registry.ServiceInstance{
+                        Name:   etcdSvcName,
+                        ID:     registry.ServiceID(etcdSvcName, *nodeID),
+                        Addr:   svcAddr,
+                        Port:   actualPort,
+                        NodeID: *nodeID,
+                }
+                if err := reg.Register(inst); err != nil {
+                        logger.Warnf("%s: etcd register failed: %v", serviceName, err)
+                }
+        }
 
-	app := fiber.New(fiber.Config{
-		ReadTimeout:  time.Duration(cfg.Server.ReadTimeout) * time.Second,
-		WriteTimeout: time.Duration(cfg.Server.WriteTimeout) * time.Second,
-		BodyLimit:    4 * 1024 * 1024,
-		ErrorHandler: defaultErrorHandler,
-	})
 
-	app.Use(middleware.RecoveryMiddleware())
-	app.Use(middleware.RequestIDMiddleware())
-	app.Use(compress.New())
+        app := fiber.New(fiber.Config{
+                ReadTimeout:  time.Duration(cfg.Server.ReadTimeout) * time.Second,
+                WriteTimeout: time.Duration(cfg.Server.WriteTimeout) * time.Second,
+                BodyLimit:    4 * 1024 * 1024, // 4MB max request body
+                ErrorHandler: defaultErrorHandler,
+        })
 
-	registerRoutes(app)
+        app.Use(middleware.RecoveryMiddleware())
+        app.Use(middleware.RequestIDMiddleware())
+        app.Use(compress.New())
 
-	go func() {
-		addr := server.ResolveAddr(cfg.Server.Addr, actualPort)
-		logger.Infof("%s listening on %s", serviceName, addr)
-		if err := app.Listen(addr); err != nil {
-			logger.Fatalf("%s failed: %v", serviceName, err)
-		}
-	}()
+        registerRoutes(app)
 
-	_ = server.WaitForSignal()
+        go func() {
+                addr := server.ResolveAddr(cfg.Server.Addr, actualPort)
+                logger.Infof("%s listening on %s", serviceName, addr)
+                if err := app.Listen(addr); err != nil {
+                        logger.Fatalf("%s failed: %v", serviceName, err)
+                }
+        }()
 
-	server.GracefulShutdown(serviceName, app, 0, server.ShutdownCallbacks{
-		BeforeServer: []func(){
-			func() {
-				if reg != nil {
-					reg.Deregister(etcdSvcName, registry.ServiceID(etcdSvcName, *nodeID))
-					reg.Close()
-				}
-			},
-		},
-		AfterServer: buildAfterServerCallbacks(),
-	})
-}
+        // Block until SIGINT/SIGTERM (SIGHUP triggers config reload automatically)
+        _ = server.WaitForSignal()
 
-func buildAfterServerCallbacks() []func() {
-	return []func(){
-		func() {
-			logger.Infof("%s: closing database connection", serviceName)
-			sqlDB, _ := database.DB().DB()
-			if sqlDB != nil {
-				sqlDB.Close()
-			}
-		},
-		func() {
-			if r := cache.Client(); r != nil {
-				r.Close()
-			}
-		},
-	}
+        server.GracefulShutdown(serviceName, app, 0, server.ShutdownCallbacks{
+                BeforeServer: []func() {
+                        func() {
+                                if reg != nil {
+                                        reg.Deregister(etcdSvcName, registry.ServiceID(etcdSvcName, *nodeID))
+                                        reg.Close()
+                                }
+                        },
+                },
+                AfterServer: buildAfterServerCallbacks(),
+        })
 }
 
 func registerRoutes(app *fiber.App) {
-	api := app.Group("/api/v1/" + serviceName)
+        api := app.Group("/api/v1/" + serviceName)
 
-	// Health (public)
-	api.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(bizerr.SuccessResponse(map[string]interface{}{
-			"status":  "ok",
-			"service": serviceName,
-		}))
-	})
+        api.Get("/health", func(c *fiber.Ctx) error {
+                return c.JSON(bizerr.SuccessResponse(map[string]interface{}{
+                        "status":  "ok",
+                        "service": serviceName,
+                }))
+        })
 
-	// Authenticated routes (HMAC from Gate)
-	authenticated := api.Group("")
-	authenticated.Use(middleware.InternalAuthMiddleware(config.C().Gate.HMACSecret))
+        authenticated := api.Group("")
+        authenticated.Use(middleware.InternalAuthMiddleware(config.C().Gate.HMACSecret))
 
-	// ── Wallet ──
-	authenticated.Get("/wallet", handler.WalletInfo)
+        // Wallet
+        authenticated.Get("/wallet", handler.GetShopWallet)
 
-	// ── Channels ──
-	authenticated.Get("/payment-channels", handler.PaymentChannels)
-	authenticated.Get("/withdraw-channels", handler.WithdrawChannels)
+        // Payment channels
+        authenticated.Get("/payment-channels", handler.GetPaymentChannels)
+        authenticated.Get("/withdraw-channels", handler.GetWithdrawChannels)
 
-	// ── Recharge (Deposit) ──
-	authenticated.Post("/recharge", handler.CreateRecharge)
-	authenticated.Post("/recharge/complete", handler.CompleteRecharge)
+        // Orders
+        authenticated.Post("/recharge", handler.CreateRecharge)
+        authenticated.Post("/withdraw", handler.CreateWithdraw)
+        authenticated.Get("/orders", handler.GetOrders)
 
-	// ── Withdraw ──
-	authenticated.Post("/withdraw", handler.CreateWithdraw)
-	authenticated.Post("/withdraw/complete", handler.CompleteWithdraw)
+        // Payment accounts
+        authenticated.Get("/payment-accounts", handler.GetPaymentAccounts)
+        authenticated.Post("/payment-accounts", handler.SavePaymentAccount)
 
-	// ── Orders ──
-	authenticated.Get("/orders", handler.GetOrders)
-
-	// ── Payment Accounts ──
-	authenticated.Get("/payment-accounts", handler.GetUserPaymentAccounts)
-	authenticated.Post("/payment-accounts", handler.SetUserPaymentAccount)
-
-	// ── Withdraw Password ──
-	authenticated.Post("/withdraw-password", handler.SetWithdrawPassword)
+        // Withdraw password
+        authenticated.Post("/withdraw-password", handler.SetWithdrawPassword)
 }
 
 func defaultErrorHandler(c *fiber.Ctx, err error) error {
-	code := fiber.StatusInternalServerError
-	if e, ok := err.(*fiber.Error); ok {
-		code = e.Code
-	}
-	return c.Status(code).JSON(bizerr.ErrorResponse(err))
+        code := fiber.StatusInternalServerError
+        if e, ok := err.(*fiber.Error); ok {
+                code = e.Code
+        }
+        return c.Status(code).JSON(bizerr.ErrorResponse(err))
+}
+
+func buildAfterServerCallbacks() []func() {
+        return []func(){
+                func() {
+                        sqlDB, _ := database.DB().DB()
+                        if sqlDB != nil {
+                                sqlDB.Close()
+                        }
+                },
+        }
 }

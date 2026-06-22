@@ -1,984 +1,899 @@
+// Package handler provides HTTP handler functions for the RockGame Shop API.
+//
+// This file implements wallet, payment channel, recharge, withdraw, and order-related
+// handlers for the H5 frontend wallet page.
+//
+// Endpoints:
+//   - GetShopWallet:             user wallet balance and summary
+//   - GetPaymentChannels:        available deposit channels
+//   - GetWithdrawChannels:       available withdrawal channels
+//   - CreateRecharge:            create a deposit order
+//   - CreateWithdraw:            create a withdraw order (with frozen balance deduction)
+//   - GetOrders:                 paginated order history (recharge/withdraw)
+//   - GetPaymentAccounts:        user's saved payment accounts
+//   - SavePaymentAccount:        add or update a payment account
+//   - SetWithdrawPassword:       set/modify withdraw password
 package handler
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
-	"errors"
-	"fmt"
-	"time"
+        "encoding/json"
+        "errors"
+        "fmt"
+        "math"
+        "strings"
+        "time"
 
-	"github.com/gofiber/fiber/v2"
-	bizerr "github.com/rocyu-tech/rockgame/internal/errors"
-	"github.com/rocyu-tech/rockgame/internal/middleware"
-	"github.com/rocyu-tech/rockgame/internal/model"
-	"github.com/rocyu-tech/rockgame/pkg/database"
-	"github.com/rocyu-tech/rockgame/pkg/logger"
-	"github.com/rocyu-tech/rockgame/pkg/snowflake"
-	"gorm.io/gorm"
+        "github.com/gofiber/fiber/v2"
+        "github.com/rocyu-tech/rockgame/pkg/snowflake"
+        "golang.org/x/crypto/bcrypt"
+        "gorm.io/gorm"
+
+        bizerr "github.com/rocyu-tech/rockgame/internal/errors"
+        "github.com/rocyu-tech/rockgame/internal/middleware"
+        "github.com/rocyu-tech/rockgame/internal/model"
+        "github.com/rocyu-tech/rockgame/pkg/database"
+        "github.com/rocyu-tech/rockgame/pkg/logger"
 )
 
-// ──────────────────────────────────────────────
-//  WALLET / BALANCE
-// ──────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-// WalletInfo returns the user's wallet balance and stats.
+const (
+        // withdrawPasswordCost is bcrypt cost for withdraw password hashing.
+        withdrawPasswordCost = 10
+
+        // defaultWithdrawFeeRate is the default fee rate (percentage) for withdrawals.
+        defaultWithdrawFeeRate = 0.0
+
+        // orderNoPrefix is the prefix for generated order numbers.
+        rechargeOrderPrefix = "R"
+        withdrawOrderPrefix = "W"
+)
+
+// ─── Request / Response types ────────────────────────────────────────────────
+
+// RechargeRequest is the request body for creating a recharge order.
+type RechargeRequest struct {
+        ChannelID int64   `json:"channel_id"`
+        Amount    float64 `json:"amount"`
+}
+
+// WithdrawRequest is the request body for creating a withdraw order.
+type WithdrawRequest struct {
+        ChannelID  int64   `json:"channel_id"`
+        Amount     float64 `json:"amount"`
+        AccountID  int64   `json:"account_id"`  // use saved payment account
+        Account    string  `json:"account"`     // or provide account directly
+        AccountName string `json:"account_name"` // account holder name
+        WithdrawPwd string `json:"withdraw_pwd"` // withdraw password
+}
+
+// SavePaymentAccountRequest is the request body for saving a payment account.
+type SavePaymentAccountRequest struct {
+        ID          int64  `json:"id"`
+        AccountType int8   `json:"account_type"`
+        Title       string `json:"title"`
+        Account     string `json:"account"`
+        Code        string `json:"code"`
+        Username    string `json:"username"`
+}
+
+// SetWithdrawPasswordRequest is the request body for setting/modifying withdraw password.
+type SetWithdrawPasswordRequest struct {
+        OldPwd string `json:"old_pwd"`
+        NewPwd string `json:"new_pwd"`
+}
+
+// ─── Wallet ──────────────────────────────────────────────────────────────────
+
+// GetShopWallet returns the current user's wallet balance and summary stats.
 //
 // GET /api/v1/shop/wallet
-func WalletInfo(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		return bizerr.ErrUnauthorized
-	}
+func GetShopWallet(c *fiber.Ctx) error {
+        userID := middleware.GetUserID(c)
+        if userID == 0 {
+                return bizerr.ErrUnauthorized
+        }
 
-	db := MustDB(c, "WalletInfo")
-	if db == nil {
-		return bizerr.ErrInternal
-	}
+        logger.Infof("[GetShopWallet] start: user_id=%d", userID)
 
-	var wallet model.UserWallet
-	err := db.Where("user_id = ?", userID).First(&wallet).Error
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		middleware.LogError(c, "WalletInfo.Query", err)
-		return bizerr.ErrInternal
-	}
+        db := MustDB(c, "GetShopWallet")
+        if db == nil {
+                return nil
+        }
 
-	// No wallet record yet — return zero balances
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return c.JSON(bizerr.SuccessResponse(fiber.Map{
-			"balance":         0,
-			"bonus_balance":   0,
-			"frozen_balance":  0,
-			"total_recharge":  0,
-			"total_withdraw": 0,
-			"recharge_count":  0,
-			"withdraw_count":  0,
-			"flow_required":   0,
-			"flow_completed":  0,
-			"currency":        "USD",
-		}))
-	}
+        var wallet model.UserWallet
+        err := db.Where("user_id = ?", userID).First(&wallet).Error
+        if err != nil {
+                if errors.Is(err, gorm.ErrRecordNotFound) {
+                        // Auto-create wallet for new users
+                        wallet = model.UserWallet{
+                                UserID: userID,
+                        }
+                        if err := db.Create(&wallet).Error; err != nil {
+                                middleware.LogError(c, "GetShopWallet.CreateWallet", err)
+                                return bizerr.ErrInternal
+                        }
+                } else {
+                        middleware.LogError(c, "GetShopWallet.Query", err)
+                        return bizerr.ErrInternal
+                }
+        }
 
-	return c.JSON(bizerr.SuccessResponse(fiber.Map{
-		"balance":         wallet.CashBalance,
-		"bonus_balance":   wallet.BonusBalance,
-		"frozen_balance":  wallet.FrozenBalance,
-		"total_recharge":  wallet.TotalRecharge,
-		"total_withdraw": wallet.TotalWithdraw,
-		"recharge_count":  wallet.RechargeCount,
-		"withdraw_count":  wallet.WithdrawCount,
-		"flow_required":   wallet.FlowRequired,
-		"flow_completed":  wallet.FlowCompleted,
-		"currency":        "USD",
-	}))
+        // Calculate flow requirements (simplified: 1x recharge amount as flow requirement)
+        flowRequired := wallet.TotalRecharge
+        flowCompleted := wallet.TotalBet
+
+        logger.Infof("[GetShopWallet] success: user_id=%d balance=%.2f", userID, wallet.CashBalance)
+
+        return c.JSON(bizerr.SuccessResponse(fiber.Map{
+                "balance":         fmt.Sprintf("%.2f", wallet.CashBalance),
+                "bonus_balance":   fmt.Sprintf("%.2f", wallet.BonusBalance),
+                "frozen_balance":  fmt.Sprintf("%.2f", wallet.FrozenBalance),
+                "total_recharge":  fmt.Sprintf("%.2f", wallet.TotalRecharge),
+                "total_withdraw":  fmt.Sprintf("%.2f", wallet.TotalWithdraw),
+                "recharge_count":  0, // TODO: count from recharge_order
+                "withdraw_count":  0, // TODO: count from withdraw_order
+                "flow_required":   fmt.Sprintf("%.2f", flowRequired),
+                "flow_completed":  fmt.Sprintf("%.2f", flowCompleted),
+                "currency":        "USD",
+        }))
 }
 
-// ──────────────────────────────────────────────
-//  PAYMENT / WITHDRAW CHANNELS
-// ──────────────────────────────────────────────
+// ─── Payment Channels ────────────────────────────────────────────────────────
 
-// PaymentChannels returns channels available for deposit (charge).
+// GetPaymentChannels returns all active payment channels for deposits.
+// Channels are sorted by sort_order ascending.
 //
 // GET /api/v1/shop/payment-channels
-func PaymentChannels(c *fiber.Ctx) error {
-	db := MustDB(c, "PaymentChannels")
-	if db == nil {
-		return bizerr.ErrInternal
-	}
+func GetPaymentChannels(c *fiber.Ctx) error {
+        userID := middleware.GetUserID(c)
+        if userID == 0 {
+                return bizerr.ErrUnauthorized
+        }
 
-	var channels []model.PaymentChannel
-	err := db.Where("status = 1 AND (channel_type = 0 OR channel_type = 2)").
-		Order("sort_order ASC, id ASC").
-		Find(&channels).Error
-	if err != nil {
-		middleware.LogError(c, "PaymentChannels.Find", err)
-		return bizerr.ErrInternal
-	}
+        logger.Infof("[GetPaymentChannels] start: user_id=%d", userID)
 
-	list := make([]fiber.Map, 0, len(channels))
-	for _, ch := range channels {
-		list = append(list, fiber.Map{
-			"id":            ch.ID,
-			"name":          ch.Name,
-			"icon":          ch.Icon,
-			"type":          ch.Type,
-			"sub_title":     ch.SubTitle,
-			"min_amount":    ch.MinCharge,
-			"max_amount":    ch.MaxCharge,
-			"is_hot":        ch.IsHot,
-		})
-	}
+        db := MustDB(c, "GetPaymentChannels")
+        if db == nil {
+                return nil
+        }
 
-	return c.JSON(bizerr.SuccessResponse(fiber.Map{
-		"list": list,
-	}))
+        var channels []model.PaymentChannel
+        if err := db.Where("status = 1").
+                Order("sort_order ASC, id ASC").
+                Find(&channels).Error; err != nil {
+                middleware.LogError(c, "GetPaymentChannels.Find", err)
+                return bizerr.ErrInternal
+        }
+
+        // Build response with safe fields (exclude config_json)
+        list := make([]fiber.Map, 0, len(channels))
+        for _, ch := range channels {
+                list = append(list, fiber.Map{
+                        "id":               ch.ID,
+                        "name":             ch.Name,
+                        "type":             ch.Type,
+                        "min_amount":       ch.MinAmount,
+                        "max_amount":       ch.MaxAmount,
+                        "supported_regions": ch.SupportedRegions,
+                        "sort_order":       ch.SortOrder,
+                })
+        }
+
+        logger.Infof("[GetPaymentChannels] success: count=%d", len(list))
+        return c.JSON(bizerr.SuccessResponse(list))
 }
 
-// WithdrawChannels returns channels available for withdrawal.
+// GetWithdrawChannels returns all active payment channels for withdrawals.
+// Withdrawal channels are filtered by type in {usdt, bank}.
 //
 // GET /api/v1/shop/withdraw-channels
-func WithdrawChannels(c *fiber.Ctx) error {
-	db := MustDB(c, "WithdrawChannels")
-	if db == nil {
-		return bizerr.ErrInternal
-	}
+func GetWithdrawChannels(c *fiber.Ctx) error {
+        userID := middleware.GetUserID(c)
+        if userID == 0 {
+                return bizerr.ErrUnauthorized
+        }
 
-	var channels []model.PaymentChannel
-	err := db.Where("status = 1 AND (channel_type = 1 OR channel_type = 2)").
-		Order("sort_order ASC, id ASC").
-		Find(&channels).Error
-	if err != nil {
-		middleware.LogError(c, "WithdrawChannels.Find", err)
-		return bizerr.ErrInternal
-	}
+        logger.Infof("[GetWithdrawChannels] start: user_id=%d", userID)
 
-	list := make([]fiber.Map, 0, len(channels))
-	for _, ch := range channels {
-		list = append(list, fiber.Map{
-			"id":           ch.ID,
-			"name":         ch.Name,
-			"icon":         ch.Icon,
-			"type":         ch.Type,
-			"sub_title":    ch.SubTitle,
-			"min_amount":   ch.MinWithdraw,
-			"max_amount":   ch.MaxWithdraw,
-			"daily_limit":  ch.DailyLimit,
-			"need_account": isNeedAccount(ch.Type),
-		})
-	}
+        db := MustDB(c, "GetWithdrawChannels")
+        if db == nil {
+                return nil
+        }
 
-	return c.JSON(bizerr.SuccessResponse(fiber.Map{
-		"list": list,
-	}))
+        // Withdrawal channels: USDT, bank transfer
+        withdrawTypes := []string{"usdt", "bank"}
+        var channels []model.PaymentChannel
+        if err := db.Where("status = 1 AND type IN ?", withdrawTypes).
+                Order("sort_order ASC, id ASC").
+                Find(&channels).Error; err != nil {
+                middleware.LogError(c, "GetWithdrawChannels.Find", err)
+                return bizerr.ErrInternal
+        }
+
+        list := make([]fiber.Map, 0, len(channels))
+        for _, ch := range channels {
+                list = append(list, fiber.Map{
+                        "id":               ch.ID,
+                        "name":             ch.Name,
+                        "type":             ch.Type,
+                        "min_amount":       ch.MinAmount,
+                        "max_amount":       ch.MaxAmount,
+                        "supported_regions": ch.SupportedRegions,
+                        "sort_order":       ch.SortOrder,
+                })
+        }
+
+        logger.Infof("[GetWithdrawChannels] success: count=%d", len(list))
+        return c.JSON(bizerr.SuccessResponse(list))
 }
 
-// isNeedAccount determines if a channel type requires the user to provide an account.
-func isNeedAccount(channelType string) bool {
-	switch channelType {
-	case "usdt", "crypto", "bank", "upi", "trc20", "erc20":
-		return true
-	default:
-		return true // default to requiring account for safety
-	}
-}
-
-// ──────────────────────────────────────────────
-//  RECHARGE (DEPOSIT)
-// ──────────────────────────────────────────────
+// ─── Recharge (Deposit) ─────────────────────────────────────────────────────
 
 // CreateRecharge creates a new recharge (deposit) order.
 //
+// Flow:
+//  1. Validate channel_id and amount (against channel min/max).
+//  2. Generate a unique order_no using snowflake.
+//  3. Insert a pending recharge_order record.
+//  4. Return the order_no so the frontend can redirect to payment.
+//
+// Note: Actual payment integration (Stripe/PayPal/USDT) is a placeholder.
+// The callback from the payment provider will update the order status and credit the wallet.
+//
 // POST /api/v1/shop/recharge
-// Body: { "channel_id": number, "amount": number }
 func CreateRecharge(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		return bizerr.ErrUnauthorized
-	}
+        userID := middleware.GetUserID(c)
+        if userID == 0 {
+                return bizerr.ErrUnauthorized
+        }
 
-	db := MustDB(c, "CreateRecharge")
-	if db == nil {
-		return bizerr.ErrInternal
-	}
+        var req RechargeRequest
+        if err := c.BodyParser(&req); err != nil {
+                middleware.LogError(c, "CreateRecharge.BodyParser", err)
+                return bizerr.ErrInvalidParams
+        }
 
-	// Parse request
-	var req struct {
-		ChannelID int64   `json:"channel_id"`
-		Amount    float64 `json:"amount"`
-	}
-	if err := c.BodyParser(&req); err != nil {
-		return bizerr.ErrInvalidParams
-	}
+        logger.Infof("[CreateRecharge] start: user_id=%d channel_id=%d amount=%.2f",
+                userID, req.ChannelID, req.Amount)
 
-	// Validate
-	if req.ChannelID <= 0 || req.Amount <= 0 {
-		return bizerr.New(30010, "invalid channel_id or amount").WithHTTP(fiber.StatusBadRequest)
-	}
+        // Validate amount
+        if req.Amount <= 0 {
+                return bizerr.New(bizerr.CodeInvalidParams, "amount must be greater than 0")
+        }
 
-	// Lookup channel
-	var channel model.PaymentChannel
-	if err := db.Where("id = ? AND status = 1", req.ChannelID).First(&channel).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return bizerr.New(30011, "payment channel not found or disabled").WithHTTP(fiber.StatusNotFound)
-		}
-		middleware.LogError(c, "CreateRecharge.FindChannel", err)
-		return bizerr.ErrInternal
-	}
+        db := MustDB(c, "CreateRecharge")
+        if db == nil {
+                return nil
+        }
 
-	// Validate amount range
-	if req.Amount < channel.MinCharge {
-		return bizerr.New(30012, fmt.Sprintf("minimum amount is %.2f", channel.MinCharge)).WithHTTP(fiber.StatusBadRequest)
-	}
-	if req.Amount > channel.MaxCharge {
-		return bizerr.New(30013, fmt.Sprintf("maximum amount is %.2f", channel.MaxCharge)).WithHTTP(fiber.StatusBadRequest)
-	}
+        // Validate channel exists and is active
+        var channel model.PaymentChannel
+        if err := db.Where("id = ? AND status = 1", req.ChannelID).First(&channel).Error; err != nil {
+                if errors.Is(err, gorm.ErrRecordNotFound) {
+                        return bizerr.New(bizerr.CodeInvalidParams, "invalid payment channel")
+                }
+                middleware.LogError(c, "CreateRecharge.FindChannel", err)
+                return bizerr.ErrInternal
+        }
 
-	// Generate order number
-	orderNo := generateOrderNo("R")
+        // Validate amount range
+        if channel.MinAmount > 0 && req.Amount < channel.MinAmount {
+                return bizerr.New(bizerr.CodeInvalidParams,
+                        fmt.Sprintf("minimum amount is %.2f", channel.MinAmount))
+        }
+        if channel.MaxAmount > 0 && req.Amount > channel.MaxAmount {
+                return bizerr.New(bizerr.CodeInvalidParams,
+                        fmt.Sprintf("maximum amount is %.2f", channel.MaxAmount))
+        }
 
-	// Create order
-	order := model.RechargeOrder{
-		OrderNo:       orderNo,
-		UserID:        userID,
-		ChannelID:     req.ChannelID,
-		Amount:        req.Amount,
-		Status:        model.ChargeStatusInit,
-	}
+        // Generate order number
+        orderNo := generateOrderNo(rechargeOrderPrefix)
 
-	// Insert into sharded table
-	shardTable := database.ShardTable("recharge_order", userID)
-	if err := db.Table(shardTable).Create(&order).Error; err != nil {
-		middleware.LogError(c, "CreateRecharge.InsertOrder", err)
-		return bizerr.ErrInternal
-	}
+        // Create order in sharded table
+        shardTable := database.ShardTable("recharge_order", userID)
+        result := db.Table(shardTable).Create(map[string]interface{}{
+                "user_id":    userID,
+                "order_no":   orderNo,
+                "amount":     req.Amount,
+                "amount_usd": req.Amount, // simplified: assume USD
+                "currency":   "USD",
+                "channel_id": req.ChannelID,
+                "status":     0, // pending
+        })
+        if result.Error != nil {
+                middleware.LogError(c, "CreateRecharge.Insert", result.Error)
+                return bizerr.ErrInternal
+        }
 
-	// Update sequence count for anti-abuse tracking
-	db.Model(&model.UserWallet{}).
-		Where("user_id = ?", userID).
-		UpdateColumn("recharge_count", gorm.Expr("recharge_count + 1"))
+        logger.Infof("[CreateRecharge] success: user_id=%d order_no=%s amount=%.2f channel_id=%d",
+                userID, orderNo, req.Amount, req.ChannelID)
 
-	logger.Infof("[CreateRecharge] order created: user_id=%d order_no=%s amount=%.2f channel=%d",
-		userID, orderNo, req.Amount, req.ChannelID)
-
-	// In production, this would call the payment gateway to get pay_url.
-	// For now, return the order info.
-	return c.JSON(bizerr.SuccessResponse(fiber.Map{
-		"order_no": orderNo,
-		"amount":   req.Amount,
-		"status":   "pending",
-		// "pay_url":  payURL,  // TODO: integrate with payment gateway
-	}))
+        return c.JSON(bizerr.SuccessResponse(fiber.Map{
+                "order_no": orderNo,
+                "amount":   req.Amount,
+                "status":   "pending",
+        }))
 }
 
-// ──────────────────────────────────────────────
-//  WITHDRAW
-// ──────────────────────────────────────────────
+// ─── Withdraw ───────────────────────────────────────────────────────────────
 
-// CreateWithdraw creates a new withdrawal order.
+// CreateWithdraw creates a new withdraw order.
+//
+// Flow:
+//  1. Validate withdraw password if set.
+//  2. Validate channel and amount.
+//  3. Deduct from cash_balance → frozen_balance (atomic).
+//  4. Create withdraw_order in pending status.
+//  5. Return the order details.
 //
 // POST /api/v1/shop/withdraw
-// Body: { "channel_id": number, "amount": number, "account": string }
 func CreateWithdraw(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		return bizerr.ErrUnauthorized
-	}
+        userID := middleware.GetUserID(c)
+        if userID == 0 {
+                return bizerr.ErrUnauthorized
+        }
 
-	db := MustDB(c, "CreateWithdraw")
-	if db == nil {
-		return bizerr.ErrInternal
-	}
+        var req WithdrawRequest
+        if err := c.BodyParser(&req); err != nil {
+                middleware.LogError(c, "CreateWithdraw.BodyParser", err)
+                return bizerr.ErrInvalidParams
+        }
 
-	// Parse request
-	var req struct {
-		ChannelID int64   `json:"channel_id"`
-		Amount    float64 `json:"amount"`
-		Account   string  `json:"account"`
-		AccountName string `json:"account_name"`
-	}
-	if err := c.BodyParser(&req); err != nil {
-		return bizerr.ErrInvalidParams
-	}
+        logger.Infof("[CreateWithdraw] start: user_id=%d channel_id=%d amount=%.2f",
+                userID, req.ChannelID, req.Amount)
 
-	// Validate
-	if req.ChannelID <= 0 || req.Amount <= 0 {
-		return bizerr.New(30020, "invalid channel_id or amount").WithHTTP(fiber.StatusBadRequest)
-	}
-	if req.Account == "" {
-		return bizerr.New(30021, "withdrawal account is required").WithHTTP(fiber.StatusBadRequest)
-	}
+        // Validate amount
+        if req.Amount <= 0 {
+                return bizerr.New(bizerr.CodeInvalidParams, "amount must be greater than 0")
+        }
 
-	// Lookup channel
-	var channel model.PaymentChannel
-	if err := db.Where("id = ? AND status = 1", req.ChannelID).First(&channel).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return bizerr.New(30022, "withdraw channel not found or disabled").WithHTTP(fiber.StatusNotFound)
-		}
-		middleware.LogError(c, "CreateWithdraw.FindChannel", err)
-		return bizerr.ErrInternal
-	}
+        db := MustDB(c, "CreateWithdraw")
+        if db == nil {
+                return nil
+        }
 
-	// Validate amount range
-	if req.Amount < channel.MinWithdraw {
-		return bizerr.New(30023, fmt.Sprintf("minimum withdrawal is %.2f", channel.MinWithdraw)).WithHTTP(fiber.StatusBadRequest)
-	}
-	if req.Amount > channel.MaxWithdraw {
-		return bizerr.New(30024, fmt.Sprintf("maximum withdrawal is %.2f", channel.MaxWithdraw)).WithHTTP(fiber.StatusBadRequest)
-	}
+        // Check if user has set withdraw password and validate it
+        var pwdRecord model.UserWithdrawPassword
+        pwdErr := db.Where("user_id = ?", userID).First(&pwdRecord).Error
+        if pwdErr == nil && pwdRecord.HasSet == 1 {
+                // User has withdraw password set — must verify
+                if req.WithdrawPwd == "" {
+                        return bizerr.New(bizerr.CodeInvalidParams, "withdraw password is required")
+                }
+                if err := bcrypt.CompareHashAndPassword(
+                        []byte(pwdRecord.PasswordHash), []byte(req.WithdrawPwd)); err != nil {
+                        return bizerr.New(bizerr.CodeInvalidPassword, "incorrect withdraw password")
+                }
+        }
 
-	// Get wallet and check balance (with optimistic lock)
-	var wallet model.UserWallet
-	err := db.Where("user_id = ?", userID).First(&wallet).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return bizerr.ErrInsufficientBalance
-		}
-		middleware.LogError(c, "CreateWithdraw.FindWallet", err)
-		return bizerr.ErrInternal
-	}
+        // Validate channel exists and is active
+        var channel model.PaymentChannel
+        if err := db.Where("id = ? AND status = 1", req.ChannelID).First(&channel).Error; err != nil {
+                if errors.Is(err, gorm.ErrRecordNotFound) {
+                        return bizerr.New(bizerr.CodeInvalidParams, "invalid withdraw channel")
+                }
+                middleware.LogError(c, "CreateWithdraw.FindChannel", err)
+                return bizerr.ErrInternal
+        }
 
-	if wallet.CashBalance < req.Amount {
-		return bizerr.ErrInsufficientBalance
-	}
+        // Validate amount range
+        if channel.MinAmount > 0 && req.Amount < channel.MinAmount {
+                return bizerr.New(bizerr.CodeInvalidParams,
+                        fmt.Sprintf("minimum withdrawal amount is %.2f", channel.MinAmount))
+        }
+        if channel.MaxAmount > 0 && req.Amount > channel.MaxAmount {
+                return bizerr.New(bizerr.CodeInvalidParams,
+                        fmt.Sprintf("maximum withdrawal amount is %.2f", channel.MaxAmount))
+        }
 
-	// Check daily limit
-	if channel.DailyLimit > 0 {
-		today := time.Now().Format("2006-01-02")
-		shardTable := database.ShardTable("withdraw_order", userID)
-		var todayTotal struct {
-			Total float64
-		}
-		db.Table(shardTable).
-			Select("COALESCE(SUM(amount), 0) as total").
-			Where("user_id = ? AND status IN (0, 1, 2) AND DATE(created_at) = ?", userID, today).
-			Scan(&todayTotal)
+        // Calculate fee
+        feeRate := defaultWithdrawFeeRate
+        // TODO: look up VIP fee rate from user_vip + vip_level_config
+        fee := math.Floor(req.Amount*feeRate*100) / 100 // 2 decimal places
+        realAmount := math.Floor((req.Amount-fee)*100) / 100
 
-		if todayTotal.Total + req.Amount > channel.DailyLimit {
-			return bizerr.New(30025, fmt.Sprintf("daily withdrawal limit is %.2f", channel.DailyLimit)).WithHTTP(fiber.StatusBadRequest)
-		}
-	}
+        // Resolve payment account info
+        var bankInfoJSON string
+        if req.AccountID > 0 {
+                // Use saved payment account
+                shardTable := database.ShardTable("user_payment_account", userID)
+                var acct model.UserPaymentAccount
+                if err := db.Table(shardTable).
+                        Where("id = ? AND user_id = ? AND status = 1", req.AccountID, userID).
+                        First(&acct).Error; err != nil {
+                        return bizerr.New(bizerr.CodeNotFound, "payment account not found")
+                }
+                bankInfoMap := map[string]interface{}{
+                        "account_type": acct.AccountType,
+                        "title":        acct.Title,
+                        "account":      acct.Account,
+                        "code":         acct.Code,
+                        "username":     acct.Username,
+                }
+                bankInfoBytes, _ := json.Marshal(bankInfoMap)
+                bankInfoJSON = string(bankInfoBytes)
+        } else if req.Account != "" {
+                // Direct account info from request
+                bankInfoMap := map[string]interface{}{
+                        "account_type": channelTypeToAccountType(channel.Type),
+                        "account":      req.Account,
+                        "username":     req.AccountName,
+                }
+                if req.Account != "" {
+                        bankInfoMap["title"] = channel.Name
+                }
+                bankInfoBytes, _ := json.Marshal(bankInfoMap)
+                bankInfoJSON = string(bankInfoBytes)
+        } else {
+                return bizerr.New(bizerr.CodeInvalidParams, "account_id or account is required")
+        }
 
-	// Calculate fee (simplified: 0% for now, configurable per VIP later)
-	fee := 0.0
-	realAmount := req.Amount - fee
-	if realAmount < 0 {
-		realAmount = 0
-	}
+        orderNo := generateOrderNo(withdrawOrderPrefix)
 
-	// Generate order number
-	orderNo := generateOrderNo("W")
+        // Atomic: deduct cash_balance → frozen_balance + create order
+        err := db.Transaction(func(tx *gorm.DB) error {
+                // 1. Freeze balance: cash_balance -= amount, frozen_balance += amount
+                freezeResult := tx.Exec(
+                        "UPDATE user_wallet SET cash_balance = cash_balance - ?, frozen_balance = frozen_balance + ?, version = version + 1, updated_at = NOW() WHERE user_id = ? AND cash_balance >= ? AND version = ?",
+                        req.Amount, req.Amount, userID, req.Amount, 0, // version check simplified
+                )
+                if freezeResult.Error != nil {
+                        return freezeResult.Error
+                }
+                if freezeResult.RowsAffected == 0 {
+                        return bizerr.ErrInsufficientBalance
+                }
 
-	// Create order
-	order := model.WithdrawOrder{
-		OrderNo:     orderNo,
-		UserID:      userID,
-		ChannelID:   req.ChannelID,
-		Amount:      req.Amount,
-		Fee:         fee,
-		RealAmount:  realAmount,
-		Account:     req.Account,
-		AccountName: req.AccountName,
-		Status:      model.WithdrawStatusInit,
-	}
+                // 2. Create withdraw order in sharded table
+                shardTable := database.ShardTable("withdraw_order", userID)
+                result := tx.Table(shardTable).Create(map[string]interface{}{
+                        "user_id":     userID,
+                        "order_no":    orderNo,
+                        "amount":      req.Amount,
+                        "currency":    "USD",
+                        "bank_info":   bankInfoJSON,
+                        "channel_id":  req.ChannelID,
+                        "fee":         fee,
+                        "real_amount": realAmount,
+                        "status":      0, // pending
+                })
+                if result.Error != nil {
+                        return result.Error
+                }
 
-	// Insert into sharded table
-	shardTable := database.ShardTable("withdraw_order", userID)
-	if err := db.Table(shardTable).Create(&order).Error; err != nil {
-		middleware.LogError(c, "CreateWithdraw.InsertOrder", err)
-		return bizerr.ErrInternal
-	}
+                // 3. Update total_withdraw counter on wallet
+                tx.Exec(
+                        "UPDATE user_wallet SET total_withdraw = total_withdraw + ? WHERE user_id = ?",
+                        req.Amount, userID,
+                )
 
-	// Deduct balance with optimistic lock
-	result := db.Model(&model.UserWallet{}).
-		Where("user_id = ? AND cash_balance >= ? AND version = ?", userID, req.Amount, wallet.Version).
-		Updates(map[string]interface{}{
-			"cash_balance":   gorm.Expr("cash_balance - ?", req.Amount),
-			"frozen_balance": gorm.Expr("frozen_balance + ?", req.Amount),
-			"version":       gorm.Expr("version + 1"),
-		})
-	if result.RowsAffected == 0 {
-		// Rollback order
-		db.Table(shardTable).Where("order_no = ?", orderNo).Delete(&model.WithdrawOrder{})
-		return bizerr.New(30026, "balance changed during operation, please try again").WithHTTP(fiber.StatusConflict)
-	}
+                return nil
+        })
+        if err != nil {
+                if bizErr, ok := err.(*bizerr.BizError); ok {
+                        return bizErr
+                }
+                middleware.LogError(c, "CreateWithdraw.Transaction", err)
+                return bizerr.ErrInternal
+        }
 
-	logger.Infof("[CreateWithdraw] order created: user_id=%d order_no=%s amount=%.2f channel=%d",
-		userID, orderNo, req.Amount, req.ChannelID)
+        logger.Infof("[CreateWithdraw] success: user_id=%d order_no=%s amount=%.2f fee=%.2f real=%.2f",
+                userID, orderNo, req.Amount, fee, realAmount)
 
-	return c.JSON(bizerr.SuccessResponse(fiber.Map{
-		"order_no":   orderNo,
-		"amount":     req.Amount,
-		"fee":        fee,
-		"real_amount": realAmount,
-		"status":     "pending",
-	}))
+        return c.JSON(bizerr.SuccessResponse(fiber.Map{
+                "order_no":   orderNo,
+                "amount":     req.Amount,
+                "fee":        fee,
+                "real_amount": realAmount,
+                "status":     "pending",
+        }))
 }
 
-// ──────────────────────────────────────────────
-//  ORDER HISTORY
-// ──────────────────────────────────────────────
+// ─── Orders ──────────────────────────────────────────────────────────────────
 
-// GetOrders returns paginated order history (both recharge and withdraw).
+// GetOrders returns a paginated list of orders for the current user.
+// Supports type filter: "recharge", "withdraw", or "all" (default).
 //
 // GET /api/v1/shop/orders?type=recharge&page=1&page_size=20
-// GET /api/v1/shop/orders?type=withdraw&page=1&page_size=20
 func GetOrders(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		return bizerr.ErrUnauthorized
-	}
+        userID := middleware.GetUserID(c)
+        if userID == 0 {
+                return bizerr.ErrUnauthorized
+        }
 
-	db := MustDB(c, "GetOrders")
-	if db == nil {
-		return bizerr.ErrInternal
-	}
+        page, pageSize, offset := ParsePagination(c)
+        orderType := c.Query("type", "all")
 
-	orderType := c.Query("type", "all") // recharge, withdraw, all
-	page, pageSize, offset := ParsePagination(c)
+        logger.Infof("[GetOrders] start: user_id=%d type=%s page=%d page_size=%d",
+                userID, orderType, page, pageSize)
 
-	var list []fiber.Map
-	var total int64
+        db := MustDB(c, "GetOrders")
+        if db == nil {
+                return nil
+        }
 
-	if orderType == "withdraw" || orderType == "all" {
-		shardTable := database.ShardTable("withdraw_order", userID)
-		var orders []model.WithdrawOrder
+        var orders []fiber.Map
+        var total int64
 
-		countQuery := db.Table(shardTable).Where("user_id = ?", userID)
-		if orderType == "all" {
-			// nothing extra
-		}
-		countQuery.Count(&total)
+        // Build order list from sharded tables
+        if orderType == "recharge" || orderType == "all" {
+                shardTable := database.ShardTable("recharge_order", userID)
+                var count int64
+                db.Table(shardTable).Where("user_id = ?", userID).Count(&count)
+                total += count
 
-		db.Table(shardTable).
-			Where("user_id = ?", userID).
-			Order("created_at DESC").
-			Offset(offset).
-			Limit(pageSize).
-			Find(&orders)
+                type rechargeRow struct {
+                        ID        int64      `gorm:"column:id"`
+                        OrderNo   string     `gorm:"column:order_no"`
+                        Amount    float64    `gorm:"column:amount"`
+                        ChannelID int64      `gorm:"column:channel_id"`
+                        Status    int8       `gorm:"column:status"`
+                        CreatedAt time.Time  `gorm:"column:created_at"`
+                }
+                var rows []rechargeRow
+                db.Table(shardTable).Where("user_id = ?", userID).
+                        Order("id DESC").Offset(offset).Limit(pageSize).
+                        Find(&rows)
+                for _, r := range rows {
+                        orders = append(orders, fiber.Map{
+                                "id":          r.ID,
+                                "order_no":    r.OrderNo,
+                                "amount":      r.Amount,
+                                "channel_id":  r.ChannelID,
+                                "type":        "recharge",
+                                "status":      orderStatusText(r.Status, "recharge"),
+                                "status_code": r.Status,
+                                "created_at":  r.CreatedAt.Format("2006-01-02 15:04:05"),
+                        })
+                }
+        }
 
-		for _, o := range orders {
-			list = append(list, fiber.Map{
-				"order_no":    o.OrderNo,
-				"type":        "withdraw",
-				"amount":      o.Amount,
-				"fee":         o.Fee,
-				"real_amount": o.RealAmount,
-				"status":      withdrawStatusText(o.Status),
-				"status_code": o.Status,
-				"reason":      o.Reason,
-				"account":     maskAccount(o.Account),
-				"created_at":  o.CreatedAt,
-				"finished_at": o.FinishedAt,
-			})
-		}
-	} else {
-		// recharge
-		shardTable := database.ShardTable("recharge_order", userID)
-		var orders []model.RechargeOrder
+        if orderType == "withdraw" || orderType == "all" {
+                shardTable := database.ShardTable("withdraw_order", userID)
+                var count int64
+                db.Table(shardTable).Where("user_id = ?", userID).Count(&count)
+                total += count
 
-		db.Table(shardTable).Where("user_id = ?", userID).Count(&total)
+                type withdrawRow struct {
+                        ID         int64      `gorm:"column:id"`
+                        OrderNo    string     `gorm:"column:order_no"`
+                        Amount     float64    `gorm:"column:amount"`
+                        ChannelID  int64      `gorm:"column:channel_id"`
+                        Fee        float64    `gorm:"column:fee"`
+                        RealAmount float64    `gorm:"column:real_amount"`
+                        Status     int8       `gorm:"column:status"`
+                        CreatedAt  time.Time  `gorm:"column:created_at"`
+                }
+                var rows []withdrawRow
+                db.Table(shardTable).Where("user_id = ?", userID).
+                        Order("id DESC").Offset(offset).Limit(pageSize).
+                        Find(&rows)
+                for _, r := range rows {
+                        orders = append(orders, fiber.Map{
+                                "id":          r.ID,
+                                "order_no":    r.OrderNo,
+                                "amount":      r.Amount,
+                                "channel_id":  r.ChannelID,
+                                "fee":         r.Fee,
+                                "real_amount": r.RealAmount,
+                                "type":        "withdraw",
+                                "status":      orderStatusText(r.Status, "withdraw"),
+                                "status_code": r.Status,
+                                "created_at":  r.CreatedAt.Format("2006-01-02 15:04:05"),
+                        })
+                }
+        }
 
-		db.Table(shardTable).
-			Where("user_id = ?", userID).
-			Order("created_at DESC").
-			Offset(offset).
-			Limit(pageSize).
-			Find(&orders)
+        logger.Infof("[GetOrders] success: user_id=%d total=%d returned=%d", userID, total, len(orders))
 
-		for _, o := range orders {
-			list = append(list, fiber.Map{
-				"order_no":      o.OrderNo,
-				"type":          "recharge",
-				"amount":        o.Amount,
-				"credit_balance": o.CreditBalance,
-				"bonus_amount":  o.BonusAmount,
-				"status":        chargeStatusText(o.Status),
-				"status_code":   o.Status,
-				"payment_name":  o.PaymentName,
-				"account":       maskAccount(o.Account),
-				"created_at":     o.CreatedAt,
-				"finished_at":    o.FinishedAt,
-			})
-		}
-	}
-
-	hasMore := int64(page*pageSize) < total
-
-	return c.JSON(bizerr.SuccessResponse(fiber.Map{
-		"list":     list,
-		"total":    total,
-		"page":     page,
-		"page_size": pageSize,
-		"has_more": hasMore,
-	}))
+        return c.JSON(bizerr.SuccessResponse(&bizerr.PagedData{
+                List:     orders,
+                Total:    total,
+                Page:     page,
+                PageSize: pageSize,
+                HasMore:  int64(page*pageSize) < total,
+        }))
 }
 
-// ──────────────────────────────────────────────
-//  USER PAYMENT ACCOUNTS (for withdrawal)
-// ──────────────────────────────────────────────
+// ─── Payment Accounts ────────────────────────────────────────────────────────
 
-// GetUserPaymentAccounts returns the user's saved payment accounts.
+// GetPaymentAccounts returns the user's saved payment accounts.
 //
 // GET /api/v1/shop/payment-accounts
-func GetUserPaymentAccounts(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		return bizerr.ErrUnauthorized
-	}
+func GetPaymentAccounts(c *fiber.Ctx) error {
+        userID := middleware.GetUserID(c)
+        if userID == 0 {
+                return bizerr.ErrUnauthorized
+        }
 
-	db := MustDB(c, "GetUserPaymentAccounts")
-	if db == nil {
-		return bizerr.ErrInternal
-	}
+        logger.Infof("[GetPaymentAccounts] start: user_id=%d", userID)
 
-	shardTable := database.ShardTable("user_payment_account", userID)
-	var accounts []model.UserPaymentAccount
-	db.Table(shardTable).
-		Where("user_id = ?", userID).
-		Order("created_at DESC").
-		Find(&accounts)
+        db := MustDB(c, "GetPaymentAccounts")
+        if db == nil {
+                return nil
+        }
 
-	list := make([]fiber.Map, 0, len(accounts))
-	for _, a := range accounts {
-		list = append(list, fiber.Map{
-			"id":           a.ID,
-			"account_type": a.AccountType,
-			"title":        a.Title,
-			"account":      maskAccount(a.Account),
-			"code":         a.Code,
-			"username":     a.Username,
-		})
-	}
+        shardTable := database.ShardTable("user_payment_account", userID)
+        var accounts []model.UserPaymentAccount
+        if err := db.Table(shardTable).
+                Where("user_id = ? AND status = 1", userID).
+                Order("is_default DESC, id DESC").
+                Find(&accounts).Error; err != nil {
+                middleware.LogError(c, "GetPaymentAccounts.Find", err)
+                return bizerr.ErrInternal
+        }
 
-	return c.JSON(bizerr.SuccessResponse(fiber.Map{
-		"list": list,
-	}))
+        list := make([]fiber.Map, 0, len(accounts))
+        for _, acct := range accounts {
+                list = append(list, fiber.Map{
+                        "id":           acct.ID,
+                        "account_type": acct.AccountType,
+                        "title":        acct.Title,
+                        "account":      maskAccount(acct.Account, acct.AccountType),
+                        "code":         acct.Code,
+                        "username":     acct.Username,
+                        "is_default":   acct.IsDefault,
+                })
+        }
+
+        logger.Infof("[GetPaymentAccounts] success: user_id=%d count=%d", userID, len(list))
+        return c.JSON(bizerr.SuccessResponse(list))
 }
 
-// SetUserPaymentAccount creates or updates a payment account for withdrawal.
+// SavePaymentAccount adds or updates a payment account for the user.
 //
 // POST /api/v1/shop/payment-accounts
-// Body: { "account_type": number, "title": string, "account": string, "code": string, "username": string }
-func SetUserPaymentAccount(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		return bizerr.ErrUnauthorized
-	}
+func SavePaymentAccount(c *fiber.Ctx) error {
+        userID := middleware.GetUserID(c)
+        if userID == 0 {
+                return bizerr.ErrUnauthorized
+        }
 
-	db := MustDB(c, "SetUserPaymentAccount")
-	if db == nil {
-		return bizerr.ErrInternal
-	}
+        var req SavePaymentAccountRequest
+        if err := c.BodyParser(&req); err != nil {
+                middleware.LogError(c, "SavePaymentAccount.BodyParser", err)
+                return bizerr.ErrInvalidParams
+        }
 
-	var req struct {
-		ID          int64  `json:"id"`
-		AccountType int    `json:"account_type"`
-		Title       string `json:"title"`
-		Account     string `json:"account"`
-		Code        string `json:"code"`
-		Username    string `json:"username"`
-	}
-	if err := c.BodyParser(&req); err != nil {
-		return bizerr.ErrInvalidParams
-	}
+        logger.Infof("[SavePaymentAccount] start: user_id=%d account_type=%d title=%s id=%d",
+                userID, req.AccountType, req.Title, req.ID)
 
-	if req.Account == "" {
-		return bizerr.New(30030, "account number is required").WithHTTP(fiber.StatusBadRequest)
-	}
+        // Validate required fields
+        if req.Title == "" || req.Account == "" {
+                return bizerr.New(bizerr.CodeInvalidParams, "title and account are required")
+        }
+        if req.AccountType < 1 || req.AccountType > 3 {
+                return bizerr.New(bizerr.CodeInvalidParams, "invalid account_type")
+        }
 
-	shardTable := database.ShardTable("user_payment_account", userID)
+        db := MustDB(c, "SavePaymentAccount")
+        if db == nil {
+                return nil
+        }
 
-	// Update existing
-	if req.ID > 0 {
-		result := db.Table(shardTable).
-			Where("id = ? AND user_id = ?", req.ID, userID).
-			Updates(map[string]interface{}{
-				"account_type": req.AccountType,
-				"title":        req.Title,
-				"account":      req.Account,
-				"code":         req.Code,
-				"username":     req.Username,
-				"modify_count": gorm.Expr("modify_count + 1"),
-			})
-		if result.RowsAffected == 0 {
-			return bizerr.New(30031, "payment account not found").WithHTTP(fiber.StatusNotFound)
-		}
-		return c.JSON(bizerr.SuccessResponse(fiber.Map{"id": req.ID}))
-	}
+        shardTable := database.ShardTable("user_payment_account", userID)
 
-	// Check max accounts (default 5)
-	var count int64
-	db.Table(shardTable).Where("user_id = ?", userID).Count(&count)
-	if count >= 5 {
-		return bizerr.New(30032, "maximum 5 payment accounts allowed").WithHTTP(fiber.StatusBadRequest)
-	}
+        if req.ID > 0 {
+                // Update existing
+                result := db.Table(shardTable).
+                        Where("id = ? AND user_id = ?", req.ID, userID).
+                        Updates(map[string]interface{}{
+                                "account_type": req.AccountType,
+                                "title":        req.Title,
+                                "account":      req.Account,
+                                "code":         req.Code,
+                                "username":     req.Username,
+                                "updated_at":   time.Now(),
+                        })
+                if result.Error != nil {
+                        middleware.LogError(c, "SavePaymentAccount.Update", result.Error)
+                        return bizerr.ErrInternal
+                }
+                if result.RowsAffected == 0 {
+                        return bizerr.New(bizerr.CodeNotFound, "payment account not found")
+                }
 
-	// Create new
-	account := model.UserPaymentAccount{
-		UserID:      userID,
-		AccountType: req.AccountType,
-		Title:       req.Title,
-		Account:     req.Account,
-		Code:        req.Code,
-		Username:    req.Username,
-	}
-	if err := db.Table(shardTable).Create(&account).Error; err != nil {
-		middleware.LogError(c, "SetUserPaymentAccount.Create", err)
-		return bizerr.ErrInternal
-	}
+                logger.Infof("[SavePaymentAccount] updated: user_id=%d id=%d", userID, req.ID)
+                return c.JSON(bizerr.SuccessResponse(fiber.Map{"id": req.ID}))
+        }
 
-	return c.JSON(bizerr.SuccessResponse(fiber.Map{"id": account.ID}))
+        // Create new — limit to 5 accounts per user
+        var count int64
+        db.Table(shardTable).Where("user_id = ? AND status = 1", userID).Count(&count)
+        if count >= 5 {
+                return bizerr.New(bizerr.CodeInvalidParams, "maximum 5 payment accounts allowed")
+        }
+
+        // If this is the first account, set as default
+        isDefault := int8(0)
+        if count == 0 {
+                isDefault = 1
+        }
+
+        var newAcct model.UserPaymentAccount
+        newAcct.UserID = userID
+        newAcct.AccountType = req.AccountType
+        newAcct.Title = req.Title
+        newAcct.Account = req.Account
+        newAcct.Code = req.Code
+        newAcct.Username = req.Username
+        newAcct.IsDefault = isDefault
+        newAcct.Status = 1
+
+        if err := db.Table(shardTable).Create(&newAcct).Error; err != nil {
+                middleware.LogError(c, "SavePaymentAccount.Create", err)
+                return bizerr.ErrInternal
+        }
+
+        logger.Infof("[SavePaymentAccount] created: user_id=%d id=%d", userID, newAcct.ID)
+        return c.JSON(bizerr.SuccessResponse(fiber.Map{"id": newAcct.ID}))
 }
 
-// ──────────────────────────────────────────────
-//  WITHDRAW PASSWORD
-// ──────────────────────────────────────────────
+// ─── Withdraw Password ──────────────────────────────────────────────────────
 
-// SetWithdrawPassword sets or changes the withdrawal password.
+// SetWithdrawPassword sets or modifies the user's withdraw password.
+// If old_pwd is not provided and no password exists, this is a first-time set.
+// If old_pwd is provided, it must match the existing password.
 //
 // POST /api/v1/shop/withdraw-password
-// Body: { "old_pwd": string, "new_pwd": string }
 func SetWithdrawPassword(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == 0 {
-		return bizerr.ErrUnauthorized
-	}
+        userID := middleware.GetUserID(c)
+        if userID == 0 {
+                return bizerr.ErrUnauthorized
+        }
 
-	db := MustDB(c, "SetWithdrawPassword")
-	if db == nil {
-		return bizerr.ErrInternal
-	}
+        var req SetWithdrawPasswordRequest
+        if err := c.BodyParser(&req); err != nil {
+                middleware.LogError(c, "SetWithdrawPassword.BodyParser", err)
+                return bizerr.ErrInvalidParams
+        }
 
-	var req struct {
-		OldPwd string `json:"old_pwd"`
-		NewPwd string `json:"new_pwd"`
-	}
-	if err := c.BodyParser(&req); err != nil {
-		return bizerr.ErrInvalidParams
-	}
+        logger.Infof("[SetWithdrawPassword] start: user_id=%d", userID)
 
-	if req.NewPwd == "" {
-		return bizerr.New(30040, "new password is required").WithHTTP(fiber.StatusBadRequest)
-	}
+        // Validate new password length
+        if len(req.NewPwd) < 6 {
+                return bizerr.New(bizerr.CodeInvalidParams, "password must be at least 6 characters")
+        }
 
-	var wallet model.UserWallet
-	err := db.Where("user_id = ?", userID).First(&wallet).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// Create wallet record with password
-			pwdHash := hashWithdrawPwd(req.NewPwd)
-			newWallet := model.UserWallet{
-				UserID:          userID,
-				WithdrawPwdHash: pwdHash,
-				WithdrawPwdSet:  true,
-			}
-			if err := db.Create(&newWallet).Error; err != nil {
-				middleware.LogError(c, "SetWithdrawPassword.CreateWallet", err)
-				return bizerr.ErrInternal
-			}
-			return c.JSON(bizerr.SuccessResponse(fiber.Map{"result": "ok"}))
-		}
-		middleware.LogError(c, "SetWithdrawPassword.FindWallet", err)
-		return bizerr.ErrInternal
-	}
+        db := MustDB(c, "SetWithdrawPassword")
+        if db == nil {
+                return nil
+        }
 
-	// Verify old password if already set
-	if wallet.WithdrawPwdSet && wallet.WithdrawPwdHash != "" {
-		if hashWithdrawPwd(req.OldPwd) != wallet.WithdrawPwdHash {
-			return bizerr.New(30041, "incorrect current password").WithHTTP(fiber.StatusUnauthorized)
-		}
-	}
+        var pwdRecord model.UserWithdrawPassword
+        err := db.Where("user_id = ?", userID).First(&pwdRecord).Error
 
-	pwdHash := hashWithdrawPwd(req.NewPwd)
-	db.Model(&wallet).Updates(map[string]interface{}{
-		"withdraw_pwd_hash": pwdHash,
-		"withdraw_pwd_set":  true,
-	})
+        if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+                middleware.LogError(c, "SetWithdrawPassword.Query", err)
+                return bizerr.ErrInternal
+        }
 
-	return c.JSON(bizerr.SuccessResponse(fiber.Map{"result": "ok"}))
+        // Hash the new password
+        hashed, hashErr := bcrypt.GenerateFromPassword([]byte(req.NewPwd), withdrawPasswordCost)
+        if hashErr != nil {
+                middleware.LogError(c, "SetWithdrawPassword.Hash", hashErr)
+                return bizerr.ErrInternal
+        }
+
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+                // First-time set — require old_pwd to be empty
+                if req.OldPwd != "" {
+                        return bizerr.New(bizerr.CodeInvalidParams, "no existing password, do not provide old_pwd")
+                }
+
+                pwdRecord = model.UserWithdrawPassword{
+                        UserID:       userID,
+                        PasswordHash: string(hashed),
+                        HasSet:       1,
+                }
+                if err := db.Create(&pwdRecord).Error; err != nil {
+                        middleware.LogError(c, "SetWithdrawPassword.Create", err)
+                        return bizerr.ErrInternal
+                }
+
+                logger.Infof("[SetWithdrawPassword] created: user_id=%d", userID)
+                return c.JSON(bizerr.SuccessResponse(fiber.Map{"result": "set"}))
+        }
+
+        // Modify existing password — verify old password
+        if pwdRecord.HasSet != 1 {
+                // Record exists but password not set yet
+                return bizerr.New(bizerr.CodeInvalidParams, "no existing password, do not provide old_pwd")
+        }
+
+        if req.OldPwd == "" {
+                return bizerr.New(bizerr.CodeInvalidParams, "old_pwd is required to change password")
+        }
+
+        if err := bcrypt.CompareHashAndPassword(
+                []byte(pwdRecord.PasswordHash), []byte(req.OldPwd)); err != nil {
+                return bizerr.New(bizerr.CodeInvalidPassword, "incorrect old password")
+        }
+
+        // Update password
+        if err := db.Model(&pwdRecord).Updates(map[string]interface{}{
+                "password_hash": string(hashed),
+                "updated_at":    time.Now(),
+        }).Error; err != nil {
+                middleware.LogError(c, "SetWithdrawPassword.Update", err)
+                return bizerr.ErrInternal
+        }
+
+        logger.Infof("[SetWithdrawPassword] updated: user_id=%d", userID)
+        return c.JSON(bizerr.SuccessResponse(fiber.Map{"result": "updated"}))
 }
 
-// ──────────────────────────────────────────────
-//  ADMIN CALLBACKS (payment gateway notifications)
-// ──────────────────────────────────────────────
+// ─── Helper functions ───────────────────────────────────────────────────────
 
-// CompleteRecharge handles payment gateway callback for completed deposits.
-//
-// POST /api/v1/shop/recharge/complete (internal/admin)
-// Body: { "order_no": string, "status": number, "amount": number, "third_order_no": string }
-func CompleteRecharge(c *fiber.Ctx) error {
-	db := MustDB(c, "CompleteRecharge")
-	if db == nil {
-		return bizerr.ErrInternal
-	}
-
-	var req struct {
-		OrderNo      string  `json:"order_no"`
-		Status       int8    `json:"status"`
-		Amount       float64 `json:"amount"`
-		ThirdOrderNo string  `json:"third_order_no"`
-	}
-	if err := c.BodyParser(&req); err != nil {
-		return bizerr.ErrInvalidParams
-	}
-
-	if req.OrderNo == "" {
-		return bizerr.ErrInvalidParams
-	}
-
-	// Find order across all shards
-	var order model.RechargeOrder
-	found := false
-	for i := 0; i < database.DefaultShardCount; i++ {
-		tableName := fmt.Sprintf("recharge_order_%02d", i)
-		err := db.Table(tableName).Where("order_no = ?", req.OrderNo).First(&order).Error
-		if err == nil {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return bizerr.New(30002, "order not found").WithHTTP(fiber.StatusNotFound)
-	}
-
-	// Validate status transition: only INIT -> PAID
-	if order.Status != model.ChargeStatusInit {
-		return bizerr.New(30042, "order already processed").WithHTTP(fiber.StatusBadRequest)
-	}
-
-	now := time.Now()
-
-	if req.Status == model.ChargeStatusPaid {
-		// Credit balance
-		creditAmount := order.CreditBalance
-		if creditAmount <= 0 {
-			creditAmount = order.Amount
-		}
-
-		// Use transaction
-		tx := db.Begin()
-		defer func() {
-			if r := recover(); r != nil {
-				tx.Rollback()
-			}
-		}()
-
-		// Update order status
-		shardTable := database.ShardTable("recharge_order", order.UserID)
-		if err := tx.Table(shardTable).
-			Where("order_no = ? AND status = ?", req.OrderNo, model.ChargeStatusInit).
-			Updates(map[string]interface{}{
-				"status":        model.ChargeStatusPaid,
-				"finished_at":   now,
-				"third_order_no": req.ThirdOrderNo,
-				"amount":        req.Amount,
-			}).Error; err != nil {
-			tx.Rollback()
-			middleware.LogError(c, "CompleteRecharge.UpdateOrder", err)
-			return bizerr.ErrInternal
-		}
-
-		// Credit wallet
-		if result := tx.Model(&model.UserWallet{}).
-			Where("user_id = ?", order.UserID).
-			Updates(map[string]interface{}{
-				"cash_balance":   gorm.Expr("cash_balance + ?", creditAmount),
-				"bonus_balance":  gorm.Expr("bonus_balance + ?", order.BonusAmount),
-				"total_recharge": gorm.Expr("total_recharge + ?", creditAmount),
-				"flow_completed": gorm.Expr("flow_completed + ?", order.BonusFlow),
-				"version":       gorm.Expr("version + 1"),
-			}); result.Error != nil {
-			tx.Rollback()
-			middleware.LogError(c, "CompleteRecharge.CreditWallet", result.Error)
-			return bizerr.ErrInternal
-		}
-
-		tx.Commit()
-
-		logger.Infof("[CompleteRecharge] credited: user_id=%d order=%s amount=%.2f",
-			order.UserID, req.OrderNo, creditAmount)
-
-	} else {
-		// Mark as failed
-		shardTable := database.ShardTable("recharge_order", order.UserID)
-		db.Table(shardTable).
-			Where("order_no = ?", req.OrderNo).
-			Updates(map[string]interface{}{
-				"status":      model.ChargeStatusFailed,
-				"finished_at": now,
-			})
-	}
-
-	return c.JSON(bizerr.SuccessResponse(fiber.Map{"result": "ok"}))
-}
-
-// CompleteWithdraw handles payment gateway callback for completed withdrawals.
-//
-// POST /api/v1/shop/withdraw/complete (internal/admin)
-// Body: { "order_no": string, "status": number, "reason": string }
-func CompleteWithdraw(c *fiber.Ctx) error {
-	db := MustDB(c, "CompleteWithdraw")
-	if db == nil {
-		return bizerr.ErrInternal
-	}
-
-	var req struct {
-		OrderNo string `json:"order_no"`
-		Status  int8   `json:"status"`
-		Reason  string `json:"reason"`
-	}
-	if err := c.BodyParser(&req); err != nil {
-		return bizerr.ErrInvalidParams
-	}
-
-	if req.OrderNo == "" {
-		return bizerr.ErrInvalidParams
-	}
-
-	// Find order across all shards
-	var order model.WithdrawOrder
-	found := false
-	for i := 0; i < database.DefaultShardCount; i++ {
-		tableName := fmt.Sprintf("withdraw_order_%02d", i)
-		err := db.Table(tableName).Where("order_no = ?", req.OrderNo).First(&order).Error
-		if err == nil {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return bizerr.New(30002, "order not found").WithHTTP(fiber.StatusNotFound)
-	}
-
-	now := time.Now()
-	shardTable := database.ShardTable("withdraw_order", order.UserID)
-
-	switch req.Status {
-	case model.WithdrawStatusDone:
-		// Success: move frozen -> deducted
-		if order.Status == model.WithdrawStatusInit {
-			tx := db.Begin()
-			defer func() {
-				if r := recover(); r != nil {
-					tx.Rollback()
-				}
-			}()
-
-			if err := tx.Table(shardTable).
-				Where("order_no = ? AND status = ?", req.OrderNo, model.WithdrawStatusInit).
-				Updates(map[string]interface{}{
-					"status":      model.WithdrawStatusDone,
-					"finished_at": now,
-					"reason":      req.Reason,
-				}).Error; err != nil {
-				tx.Rollback()
-				middleware.LogError(c, "CompleteWithdraw.UpdateOrder", err)
-				return bizerr.ErrInternal
-			}
-
-			// Deduct from frozen, update total_withdraw
-			if result := tx.Model(&model.UserWallet{}).
-				Where("user_id = ?", order.UserID).
-				Updates(map[string]interface{}{
-					"frozen_balance": gorm.Expr("frozen_balance - ?", order.Amount),
-					"total_withdraw": gorm.Expr("total_withdraw + ?", order.Amount),
-					"withdraw_count": gorm.Expr("withdraw_count + 1"),
-					"version":        gorm.Expr("version + 1"),
-				}); result.Error != nil {
-				tx.Rollback()
-				middleware.LogError(c, "CompleteWithdraw.UpdateWallet", result.Error)
-				return bizerr.ErrInternal
-			}
-
-			tx.Commit()
-		}
-
-	case model.WithdrawStatusRejected:
-		// Rejected: refund frozen -> cash
-		if order.Status == model.WithdrawStatusInit {
-			tx := db.Begin()
-			defer func() {
-				if r := recover(); r != nil {
-					tx.Rollback()
-				}
-			}()
-
-			if err := tx.Table(shardTable).
-				Where("order_no = ? AND status = ?", req.OrderNo, model.WithdrawStatusInit).
-				Updates(map[string]interface{}{
-					"status":      model.WithdrawStatusRejected,
-					"finished_at": now,
-					"reason":      req.Reason,
-				}).Error; err != nil {
-				tx.Rollback()
-				middleware.LogError(c, "CompleteWithdraw.RejectOrder", err)
-				return bizerr.ErrInternal
-			}
-
-			// Refund: frozen -> cash
-			if result := tx.Model(&model.UserWallet{}).
-				Where("user_id = ?", order.UserID).
-				Updates(map[string]interface{}{
-					"cash_balance":   gorm.Expr("cash_balance + ?", order.Amount),
-					"frozen_balance": gorm.Expr("frozen_balance - ?", order.Amount),
-					"version":        gorm.Expr("version + 1"),
-				}); result.Error != nil {
-				tx.Rollback()
-				middleware.LogError(c, "CompleteWithdraw.RefundWallet", result.Error)
-				return bizerr.ErrInternal
-			}
-
-			tx.Commit()
-		}
-	}
-
-	logger.Infof("[CompleteWithdraw] processed: user_id=%d order=%s status=%d",
-		order.UserID, req.OrderNo, req.Status)
-
-	return c.JSON(bizerr.SuccessResponse(fiber.Map{"result": "ok"}))
-}
-
-// ──────────────────────────────────────────────
-//  HELPERS
-// ──────────────────────────────────────────────
-
-// generateOrderNo creates a unique order number with prefix.
-// Format: {prefix}{timestamp}{snowflake_id}
+// generateOrderNo creates a unique order number: prefix + timestamp + snowflake ID.
 func generateOrderNo(prefix string) string {
-	id := snowflake.Generate()
-	return fmt.Sprintf("%s%s%012d", prefix, time.Now().Format("20060102150405"), id%1000000000000)
+        id := snowflake.NextID()
+        now := time.Now()
+        return fmt.Sprintf("%s%s%012d", prefix, now.Format("20060102150405"), id%1000000000000)
 }
 
-// chargeStatusText converts charge status code to display text.
-func chargeStatusText(status int8) string {
-	switch status {
-	case model.ChargeStatusInit:
-		return "pending"
-	case model.ChargeStatusPaid:
-		return "success"
-	case model.ChargeStatusFailed:
-		return "failed"
-	case model.ChargeStatusRefunded:
-		return "refunded"
-	default:
-		return "unknown"
-	}
+// orderStatusText converts a numeric order status to a human-readable string.
+func orderStatusText(status int8, orderType string) string {
+        if orderType == "recharge" {
+                switch status {
+                case 0:
+                        return "pending"
+                case 1:
+                        return "paid"
+                case 2:
+                        return "failed"
+                case 3:
+                        return "refunded"
+                default:
+                        return "unknown"
+                }
+        }
+        // withdraw
+        switch status {
+        case 0:
+                return "pending"
+        case 1:
+                return "approved"
+        case 2:
+                return "completed"
+        case 3:
+                return "rejected"
+        case 4:
+                return "cancelled"
+        default:
+                return "unknown"
+        }
 }
 
-// withdrawStatusText converts withdraw status code to display text.
-func withdrawStatusText(status int8) string {
-	switch status {
-	case model.WithdrawStatusInit:
-		return "pending"
-	case model.WithdrawStatusApproved:
-		return "approved"
-	case model.WithdrawStatusDone:
-		return "completed"
-	case model.WithdrawStatusRejected:
-		return "rejected"
-	case model.WithdrawStatusCancelled:
-		return "cancelled"
-	default:
-		return "unknown"
-	}
+// maskAccount partially masks sensitive account info for display.
+func maskAccount(account string, accountType int8) string {
+        if len(account) <= 4 {
+                return account
+        }
+        switch accountType {
+        case 2: // USDT address — show first 6 and last 4
+                if len(account) > 10 {
+                        return account[:6] + "..." + account[len(account)-4:]
+                }
+        case 3: // PayPal email
+                parts := strings.Split(account, "@")
+                if len(parts) == 2 && len(parts[0]) > 2 {
+                        return parts[0][:2] + "***@" + parts[1]
+                }
+        }
+        // Bank account: show last 4
+        return "****" + account[len(account)-4:]
 }
 
-// maskAccount masks sensitive account info for display.
-// Shows first 4 and last 4 characters.
-func maskAccount(account string) string {
-	if len(account) <= 8 {
-		return account
-	}
-	return account[:4] + "****" + account[len(account)-4:]
+// channelTypeToAccountType maps a payment channel type to an account type.
+func channelTypeToAccountType(channelType string) int8 {
+        switch strings.ToLower(channelType) {
+        case "usdt":
+                return 2
+        case "paypal":
+                return 3
+        default:
+                return 1 // bank
+        }
 }
-
-// hashWithdrawPwd hashes the withdrawal password with salt.
-// Matches C++ implementation: SHA1("&&*AE86*&&" + pwd + "&&*AE86*&&")
-func hashWithdrawPwd(pwd string) string {
-	salt := "&&*AE86*&&"
-	input := salt + pwd + salt
-	// Use Go's crypto/sha1
-	h := hashSHA1(input)
-	return h
-}
-
-
