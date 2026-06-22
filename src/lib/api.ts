@@ -279,14 +279,46 @@ export const activityApi = {
 
 // Shop
 export const shopApi = {
+  // Wallet balance
+  getWallet: () => api.get<ApiResponse<{
+    balance: number;
+    bonus_balance: number;
+    frozen_balance: number;
+    total_recharge: number;
+    total_withdraw: number;
+    recharge_count: number;
+    withdraw_count: number;
+    flow_required: number;
+    flow_completed: number;
+    currency: string;
+  }>>("/shop/wallet"),
+
+  // Payment channels (for deposit)
   getPaymentChannels: () => api.get<ApiResponse<unknown[]>>("/shop/payment-channels"),
-  recharge: (data: { channel_id: number; amount: number }) =>
-    api.post<ApiResponse<{ order_no: string; pay_url: string }>>("/shop/recharge", data),
-  withdraw: (data: { channel_id: number; amount: number; account?: string }) =>
-    api.post<ApiResponse<{ order_no: string }>>("/shop/withdraw", data),
+
+  // Withdraw channels
   getWithdrawChannels: () => api.get<ApiResponse<unknown[]>>("/shop/withdraw-channels"),
-  getOrders: (params?: { page?: number; page_size?: number }) =>
+
+  // Create recharge (deposit) order
+  recharge: (data: { channel_id: number; amount: number }) =>
+    api.post<ApiResponse<{ order_no: string; amount: number; status: string }>>("/shop/recharge", data),
+
+  // Create withdraw order
+  withdraw: (data: { channel_id: number; amount: number; account?: string; account_name?: string }) =>
+    api.post<ApiResponse<{ order_no: string; amount: number; fee: number; real_amount: number; status: string }>>("/shop/withdraw", data),
+
+  // Order history (type: "recharge" | "withdraw" | "all")
+  getOrders: (params?: { type?: string; page?: number; page_size?: number }) =>
     api.get<ApiResponse<unknown[]>>("/shop/orders", { params }),
+
+  // User payment accounts (for withdrawal)
+  getPaymentAccounts: () => api.get<ApiResponse<unknown[]>>("/shop/payment-accounts"),
+  setPaymentAccount: (data: { id?: number; account_type: number; title: string; account: string; code?: string; username?: string }) =>
+    api.post<ApiResponse<{ id: number }>>("/shop/payment-accounts", data),
+
+  // Withdraw password
+  setWithdrawPassword: (data: { old_pwd?: string; new_pwd: string }) =>
+    api.post<ApiResponse<{ result: string }>>("/shop/withdraw-password", data),
 };
 
 export { TOKEN_KEY, REFRESH_TOKEN_KEY };
