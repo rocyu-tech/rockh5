@@ -3,7 +3,7 @@
 import Navbar from '@/components/Navbar';
 import BannerCarousel from '@/components/BannerCarousel';
 import { useAuthStore } from '@/store/auth';
-import { Gamepad2, Users, Trophy, Shield, Wallet, Gift, Crown, RotateCw } from 'lucide-react';
+import { Gamepad2, Users, Trophy, Shield, Wallet, Gift, Crown, RotateCw, Banknote } from 'lucide-react';
 
 export default function Home() {
   const { isLoggedIn } = useAuthStore();

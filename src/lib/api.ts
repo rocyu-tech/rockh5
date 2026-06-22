@@ -282,6 +282,9 @@ export const shopApi = {
   getPaymentChannels: () => api.get<ApiResponse<unknown[]>>("/shop/payment-channels"),
   recharge: (data: { channel_id: number; amount: number }) =>
     api.post<ApiResponse<{ order_no: string; pay_url: string }>>("/shop/recharge", data),
+  withdraw: (data: { channel_id: number; amount: number; account?: string }) =>
+    api.post<ApiResponse<{ order_no: string }>>("/shop/withdraw", data),
+  getWithdrawChannels: () => api.get<ApiResponse<unknown[]>>("/shop/withdraw-channels"),
   getOrders: (params?: { page?: number; page_size?: number }) =>
     api.get<ApiResponse<unknown[]>>("/shop/orders", { params }),
 };
