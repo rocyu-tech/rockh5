@@ -3,7 +3,7 @@
 import Navbar from '@/components/Navbar';
 import BannerCarousel from '@/components/BannerCarousel';
 import { useAuthStore } from '@/store/auth';
-import { Gamepad2, Users, Trophy, Shield, Wallet, Gift, Crown, RotateCw, Banknote } from 'lucide-react';
+import { Gamepad2, Users, Trophy, Shield, Wallet, Gift, Crown, RotateCw } from 'lucide-react';
 
 export default function Home() {
   const { isLoggedIn } = useAuthStore();
@@ -69,7 +69,7 @@ export default function Home() {
           <h2 className="text-base font-bold text-white mb-3">Quick Access</h2>
           <div className="grid grid-cols-4 gap-3">
             {[
-              { icon: Wallet, label: 'Deposit', color: '#4ecdc4', bg: '#4ecdc4', path: '/deposit' },
+              { icon: Wallet, label: 'Wallet', color: '#4ecdc4', bg: '#4ecdc4', path: '/wallet' },
               { icon: Gift, label: 'Promos', color: '#a855f7', bg: '#a855f7', path: '/promotions' },
               { icon: Crown, label: 'VIP', color: '#f5a623', bg: '#f5a623', path: '/profile' },
               { icon: RotateCw, label: 'Lucky', color: '#e94560', bg: '#e94560', action: 'spin' },
