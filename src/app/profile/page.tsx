@@ -19,6 +19,7 @@ import {
   Shield,
   Settings,
   HelpCircle,
+  Package,
   RefreshCw,
   Loader2,
 } from 'lucide-react';
@@ -174,6 +175,7 @@ export default function ProfilePage() {
             {/* Menu items */}
             {[
               { icon: TrendingUp, label: 'Transaction History', action: () => setActiveTab('transactions'), color: '#4ecdc4' },
+              { icon: Package, label: 'Backpack', action: () => router.push('/inventory'), color: '#4ecdc4' },
               { icon: Crown, label: 'VIP Club', action: () => setActiveTab('vip'), color: '#f5a623' },
               { icon: Users, label: 'Agent Program', action: () => {}, desc: 'Earn up to 45% commission', color: '#a855f7' },
             ].map((item) => (

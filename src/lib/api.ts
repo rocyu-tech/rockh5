@@ -323,6 +323,31 @@ export const shopApi = {
 
 export { TOKEN_KEY, REFRESH_TOKEN_KEY };
 
+export interface ItemDefine {
+  id: number;
+  name: string;
+  icon: string;
+  type: number; // 1=consumable 2=time-limited 3=permanent
+  duration: number;
+  stackable: number;
+  description: string;
+  i18n_key: string;
+}
+
+export interface InventoryItem {
+  id: number;
+  item_id: number;
+  name: string;
+  icon: string;
+  type: number;
+  duration: number;
+  stackable: number;
+  quantity: number;
+  description: string;
+  expire_at: string | null;
+  created_at: string;
+}
+
 // === Wheel / Lucky Spin ===
 export interface WheelPrize {
   id: number;
@@ -387,6 +412,13 @@ export interface SpinResult {
   remaining_free: number;
   today_total_spins: number;
 }
+
+export const itemApi = {
+  getInventory: () => api.get<ApiResponse<InventoryItem[]>>("/item/inventory"),
+  getList: () => api.get<ApiResponse<ItemDefine[]>>("/item/list"),
+  useItem: (data: { item_id: number; quantity?: number }) =>
+    api.post<ApiResponse<{ quantity: number }>>("/item/use", data),
+};
 
 export const wheelApi = {
   getConfig: () => api.get<ApiResponse<WheelConfig>>("/activity/spin-wheel/config"),
