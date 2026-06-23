@@ -44,7 +44,7 @@ export default function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
           {isLoggedIn ? (
             <>
               {/* Balance */}
-              <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#16213e] border border-[#f5a623]/20 active:bg-[#16213e]/80">
+              <button onClick={() => { if (typeof window !== 'undefined') window.location.href = '/wallet'; }} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#16213e] border border-[#f5a623]/20 active:bg-[#16213e]/80">
                 <Wallet className="w-3.5 h-3.5 text-[#f5a623]" />
                 <span className="text-xs font-semibold text-[#f5a623]">
                   {assets?.balance?.toLocaleString() ?? '0.00'}
