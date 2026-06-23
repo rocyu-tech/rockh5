@@ -19,7 +19,7 @@ interface Channel {
   icon?: string;
   min_amount: number;
   max_amount: number;
-  status: number;
+  type?: string;
 }
 
 interface WithdrawChannel extends Channel {
@@ -57,9 +57,9 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
     shopApi.getPaymentChannels().then((res) => {
       const data = res.data?.data;
       if (Array.isArray(data)) {
-        const active = (data as Channel[]).filter((c) => c.status === 1);
-        setChannels(active);
-        if (active.length > 0) setSelectedChannel(active[0].id);
+        const list = data as Channel[];
+        setChannels(list);
+        if (list.length > 0) setSelectedChannel(list[0].id);
       }
     }).catch((err) => {
       apiStatus.markFailed('shop/payment-channels', getErrorMessage(err));
@@ -279,15 +279,15 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
     shopApi.getWithdrawChannels().then((res) => {
       const data = res.data?.data;
       if (Array.isArray(data)) {
-        const active = (data as WithdrawChannel[]).filter((c) => c.status === 1);
-        setChannels(active);
-        if (active.length > 0) setSelectedChannel(active[0].id);
+        const list = data as WithdrawChannel[];
+        setChannels(list);
+        if (list.length > 0) setSelectedChannel(list[0].id);
       }
     }).catch(() => {
       const fallback: WithdrawChannel[] = [
-        { id: 1, name: 'USDT-TRC20', min_amount: 10, max_amount: 50000, daily_limit: 100000, status: 1, need_account: true },
-        { id: 2, name: 'Bank Transfer', min_amount: 20, max_amount: 10000, daily_limit: 50000, status: 1, need_account: true },
-        { id: 3, name: 'UPI', min_amount: 5, max_amount: 5000, daily_limit: 20000, status: 1, need_account: true },
+        { id: 1, name: 'USDT-TRC20', type: 'usdt', min_amount: 10, max_amount: 50000, daily_limit: 100000, need_account: true },
+        { id: 2, name: 'Bank Transfer', type: 'bank', min_amount: 20, max_amount: 10000, daily_limit: 50000, need_account: true },
+        { id: 3, name: 'UPI', type: 'upi', min_amount: 5, max_amount: 5000, daily_limit: 20000, need_account: true },
       ];
       setChannels(fallback);
       setSelectedChannel(fallback[0].id);
