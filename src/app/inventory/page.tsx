@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
-import { useApiStatusContext } from '@/lib/api-status';
+import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import { itemApi, InventoryItem } from '@/lib/api';
 import { Package, RefreshCw, Loader2, Zap, Clock, Shield } from 'lucide-react';
@@ -25,12 +24,10 @@ function isExpiringSoon(dateStr: string): boolean {
 }
 
 export default function InventoryPage() {
-  const router = useRouter();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [usingId, setUsingId] = useState<number | null>(null);
-  const apiStatus = useApiStatusContext();
 
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
 
@@ -47,7 +44,7 @@ export default function InventoryPage() {
       if (Array.isArray(data)) {
         setItems(data);
       } else if (data && typeof data === 'object' && 'list' in data) {
-        setItems((data as any).list);
+        setItems((data as { list: InventoryItem[] }).list);
       } else {
         setItems([]);
       }
@@ -74,9 +71,16 @@ export default function InventoryPage() {
     try {
       await itemApi.useItem({ item_id: item.item_id, quantity: 1 });
       await fetchInventory();
-      apiStatus.showSuccess?.(`Used ${item.name}`);
-    } catch {
-      apiStatus.showError?.('Failed to use item');
+      // P0-9 FIX: previously called apiStatus.showSuccess?.() / showError?.()
+      // which don't exist on the useApiStatus hook return object — the
+      // optional chaining silently swallowed the call, leaving users with
+      // zero feedback when using items succeeded or failed.
+      // Use sonner's toast directly, consistent with the rest of the app
+      // (api-status.ts also uses toast.error for connection failures).
+      toast.success(`Used ${item.name}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to use item';
+      toast.error('Failed to use item', { description: message });
     } finally {
       setUsingId(null);
     }
