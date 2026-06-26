@@ -1,4 +1,12 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+// P0-8 FIX: import the auth store to synchronize zustand state on forceLogout.
+// This creates a circular import (store/auth.ts imports TOKEN_KEY from this file),
+// but it is safe because:
+//   - Both modules only reference each other inside function bodies (runtime),
+//     never at module top-level (load time).
+//   - ESM live bindings resolve correctly once both modules finish loading,
+//     which happens before any user interaction triggers forceLogout.
+import { useAuthStore } from "@/store/auth";
 
 const TOKEN_KEY = "rockgame_token";
 const REFRESH_TOKEN_KEY = "rockgame_refresh_token";
@@ -44,9 +52,24 @@ function processQueue(error: unknown, token: string | null = null) {
 }
 
 // Helper: clear tokens and trigger login dialog
+//
+// P0-8 FIX: previously this function only cleared localStorage and dispatched
+// the 'auth:logout' event, leaving the zustand store's `isLoggedIn` flag
+// still `true`. AppProvider.handleAuthLogout checks `if (!currentlyLoggedIn)`
+// before opening the login modal — so when a 401 triggered forceLogout, the
+// modal never appeared and the user was stuck in a "looks-logged-in but every
+// request fails" limbo state.
+//
+// Fix: call useAuthStore.getState().logout() BEFORE dispatching the event.
+// This synchronously clears isLoggedIn, so AppProvider's check passes and
+// the login modal opens correctly.
 function forceLogout() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  // Synchronize zustand auth state (clears isLoggedIn, user, assets, etc.)
+  useAuthStore.getState().logout();
+  // Now dispatch the event — AppProvider will see isLoggedIn=false and
+  // correctly open the login modal.
   window.dispatchEvent(new CustomEvent("auth:logout"));
 }
 
