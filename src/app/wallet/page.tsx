@@ -284,13 +284,10 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
         if (list.length > 0) setSelectedChannel(list[0].id);
       }
     }).catch(() => {
-      const fallback: WithdrawChannel[] = [
-        { id: 1, name: 'USDT-TRC20', type: 'usdt', min_amount: 10, max_amount: 50000, daily_limit: 100000, need_account: true },
-        { id: 2, name: 'Bank Transfer', type: 'bank', min_amount: 20, max_amount: 10000, daily_limit: 50000, need_account: true },
-        { id: 3, name: 'UPI', type: 'upi', min_amount: 5, max_amount: 5000, daily_limit: 20000, need_account: true },
-      ];
-      setChannels(fallback);
-      setSelectedChannel(fallback[0].id);
+      // BG-6 FIX: removed hardcoded mock withdraw channels;
+      // on failure, channels stays empty and the UI shows a proper empty state.
+      setChannels([]);
+      setSelectedChannel(null);
     }).finally(() => setLoading(false));
   }, []);
 
