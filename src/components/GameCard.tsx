@@ -32,7 +32,7 @@ export default function GameCard({ game }: GameCardProps) {
     setLaunching(true);
     try {
       const res = await gameApi.launch(game.id);
-      const gameUrl = res.data?.data?.game_url;
+      const gameUrl = res.data?.data?.launch_url || res.data?.data?.game_url;
       if (gameUrl) {
         window.open(gameUrl, '_blank');
       }

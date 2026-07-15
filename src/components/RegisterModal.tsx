@@ -43,8 +43,13 @@ export default function RegisterModal({ open, onOpenChange, switchToLogin }: Reg
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+      setError('Password must contain at least one letter and one digit');
       return;
     }
 

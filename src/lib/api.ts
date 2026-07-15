@@ -230,15 +230,25 @@ export interface UserProfile {
 
 export interface UserAssets {
   balance: number;
+  cash_balance: number;
+  bonus_balance: number;
+  frozen_balance: number;
+  total: number;
+  total_recharge?: number;
+  total_withdraw?: number;
+  total_bet?: number;
+  total_win?: number;
   currency: string;
 }
 
 export interface VIPLevel {
   level: number;
   name: string;
-  min_deposit: number;
+  growth_required: number;
   benefits: string[];
   icon?: string;
+  withdraw_fee_rate?: number;
+  daily_signin_bonus?: number;
 }
 
 export interface Activity {

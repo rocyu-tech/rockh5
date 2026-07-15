@@ -13,35 +13,35 @@ const defaultVIPLevels: VIPLevel[] = [
   {
     level: 1,
     name: 'Bronze',
-    min_deposit: 0,
+    growth_required: 0,
     benefits: ['5% Cashback', 'Birthday Bonus', 'Priority Support'],
     icon: '🥉',
   },
   {
     level: 2,
     name: 'Silver',
-    min_deposit: 1000,
+    growth_required: 1000,
     benefits: ['8% Cashback', 'Weekly Bonus', 'Personal Manager', 'Exclusive Games'],
     icon: '🥈',
   },
   {
     level: 3,
     name: 'Gold',
-    min_deposit: 5000,
+    growth_required: 5000,
     benefits: ['10% Cashback', 'Daily Bonus', 'Personal Manager', 'VIP Events', 'Higher Limits'],
     icon: '🥇',
   },
   {
     level: 4,
     name: 'Platinum',
-    min_deposit: 20000,
+    growth_required: 20000,
     benefits: ['12% Cashback', 'Unlimited Bonuses', 'Dedicated Manager', 'VIP Events', 'Luxury Gifts', 'Priority Withdrawal'],
     icon: '💎',
   },
   {
     level: 5,
     name: 'Diamond',
-    min_deposit: 100000,
+    growth_required: 100000,
     benefits: ['15% Cashback', 'All Bonuses', '24/7 Manager', 'Exclusive Events', 'Luxury Gifts', 'Instant Withdrawal', 'Custom Limits'],
     icon: '👑',
   },
@@ -160,11 +160,11 @@ export default function VIPSection() {
                 )}
               </div>
 
-              {/* Min deposit */}
+              {/* Growth required */}
               <div className="mb-3">
-                <p className="text-[10px] text-[#8892b0] uppercase tracking-wider">Min. Deposit</p>
+                <p className="text-[10px] text-[#8892b0] uppercase tracking-wider">Growth Required</p>
                 <p className="text-sm font-semibold text-white">
-                  ${level.min_deposit.toLocaleString()}
+                  {level.growth_required.toLocaleString()} pts
                 </p>
               </div>
 
