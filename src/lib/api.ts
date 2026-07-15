@@ -288,7 +288,7 @@ export const lobbyApi = {
 
 // Game
 export const gameApi = {
-  launch: (id: number) => api.get<ApiResponse<{ game_url: string }>>(`/game/launch/${id}`),
+  launch: (id: number) => api.get<ApiResponse<{ game_url: string; launch_url: string; session_token: string; vendor: string }>>(`/game/launch/${id}`),
   getVendors: () => api.get<ApiResponse<GameVendor[]>>("/game/vendors"),
 };
 
@@ -334,7 +334,7 @@ export const shopApi = {
 
   // Create recharge (deposit) order
   recharge: (data: { channel_id: number; amount: number }) =>
-    api.post<ApiResponse<{ order_no: string; amount: number; status: string }>>("/shop/recharge", data),
+    api.post<ApiResponse<{ order_no: string; amount: number; status: string; pay_url?: string; pay_token?: string; qr_code?: string }>>("/shop/recharge", data),
 
   // Create withdraw order
   withdraw: (data: { channel_id: number; amount: number; account?: string; account_name?: string }) =>
