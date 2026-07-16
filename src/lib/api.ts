@@ -511,6 +511,7 @@ export interface TaskItem {
 }
 
 export interface TaskTypeState {
+  task_type: number;
   receive_all_btn: number;
   task_type_state: TaskItem[];
 }
@@ -529,6 +530,7 @@ export const taskApi = {
       api.get<ApiResponse<TaskItem[]>>("/task/growth"),
     ]);
     const wrap = (list: TaskItem[], type: number): TaskTypeState => ({
+      task_type: type,
       receive_all_btn: list.some(t => t.receive_status === 1) ? 1 : 0,
       task_type_state: list,
     });
