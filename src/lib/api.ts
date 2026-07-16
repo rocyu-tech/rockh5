@@ -295,6 +295,9 @@ export const gameApi = {
   getVendors: () => api.get<ApiResponse<GameVendor[]>>("/game/vendors"),
   toggleFavorite: (gameId: number) => api.post<ApiResponse<{ is_favorite: boolean }>>("/game/manage/favorite", { game_id: gameId }),
   getRecentGames: () => api.get<ApiResponse<Game[]>>("/game/manage/recent"),
+  searchGames: (keyword: string, page?: number, pageSize?: number) =>
+    api.get<ApiResponse<{ list: Game[]; total: number }>>("/game/manage/search", { params: { keyword, page, page_size: pageSize } }),
+  endSession: (sessionId: string) => api.post<ApiResponse<{ result: string }>>("/game/manage/end-session", { session_id: sessionId }),
 };
 
 // Account
@@ -311,6 +314,7 @@ export const accountApi = {
       headers: { "Content-Type": "multipart/form-data" },
     });
   },
+  deleteAccount: () => api.post<ApiResponse<{ result: string }>>("/account/delete-account"),
 };
 
 // VIP
@@ -318,6 +322,7 @@ export const vipApi = {
   getLevels: () => api.get<ApiResponse<VIPLevel[]>>("/vip/levels"),
   getInfo: () => api.get<ApiResponse<{ level: number; progress: number }>>("/vip/info"),
   getBenefits: () => api.get<ApiResponse<{ level: number; level_name: string; benefits: string[] }>>("/vip/benefits"),
+  upgrade: () => api.post<ApiResponse<{ result: string; new_level?: number }>>("/vip/upgrade"),
 };
 
 // Activity
@@ -478,6 +483,8 @@ export const itemApi = {
   getList: () => api.get<ApiResponse<ItemDefine[]>>("/item/list"),
   useItem: (data: { item_id: number; quantity?: number }) =>
     api.post<ApiResponse<{ quantity: number }>>("/item/use", data),
+  transfer: (data: { target_user_id: number; item_id: number; quantity: number }) =>
+    api.post<ApiResponse<{ result: string }>>("/item/transfer", data),
 };
 
 export const wheelApi = {
@@ -515,12 +522,23 @@ export interface TaskProgress {
 }
 
 export const taskApi = {
-  getTaskConfig: () => api.get<ApiResponse<TaskTypeState[]>>("/task/config"),
+  getTaskConfig: async () => {
+    const [daily, weekly, growth] = await Promise.all([
+      api.get<ApiResponse<TaskItem[]>>("/task/daily"),
+      api.get<ApiResponse<TaskItem[]>>("/task/weekly"),
+      api.get<ApiResponse<TaskItem[]>>("/task/growth"),
+    ]);
+    const wrap = (list: TaskItem[], type: number): TaskTypeState => ({
+      receive_all_btn: list.some(t => t.receive_status === 1) ? 1 : 0,
+      task_type_state: list,
+    });
+    return { data: { code: 0, data: [wrap(daily.data?.data || [], 0), wrap(weekly.data?.data || [], 1), wrap(growth.data?.data || [], 2)] } };
+  },
   getTaskProgress: () => api.get<ApiResponse<TaskProgress[]>>("/task/progress"),
   claimReward: (taskId: number) =>
-    api.post<ApiResponse<{ item_id: number; item_name: string; quantity: number }>>("/task/receive", { task_id: taskId }),
+    api.post<ApiResponse<{ item_id: number; item_name: string; quantity: number }>>("/task/claim", { task_id: taskId }),
   claimAllRewards: (taskType?: number) =>
-    api.post<ApiResponse<{ count: number; items: Array<{ item_id: number; item_name: string; quantity: number }> }>>("/task/receive-all", taskType !== undefined ? { task_type: taskType } : {}),
+    api.post<ApiResponse<{ count: number; items: Array<{ item_id: number; item_name: string; quantity: number }> }>>("/task/claim", taskType !== undefined ? { task_type: taskType } : {}),
 };
 
 // ─── Mail ────────────────────────────────────────────────────────────────────
@@ -552,7 +570,7 @@ export interface MailListResult {
 }
 
 export const mailApi = {
-  getMailbox: () => api.get<ApiResponse<MailListResult>>("/mail/mailbox"),
+  getMailbox: () => api.get<ApiResponse<MailListResult>>("/mail/inbox"),
   readMail: (id: number) =>
     api.post<ApiResponse<{ mail_id: number; title: string; content: string; attachment?: Array<{ item_id: number; item_name: string; quantity: number; icon: string }> }>>("/mail/read", { mail_id: id }),
   deleteMail: (ids: number[]) =>
@@ -585,7 +603,7 @@ export const rankApi = {
   getRankList: (rankType: string, period?: string, page?: number) =>
     api.get<ApiResponse<RankListResult>>("/rank/list", { params: { rank_type: rankType, period, page } }),
   getMyRank: (rankType: string) =>
-    api.get<ApiResponse<{ my_rank: RankItem }>>("/rank/my", { params: { rank_type: rankType } }),
+    api.get<ApiResponse<{ my_rank: RankItem }>>("/rank/my-rank", { params: { rank_type: rankType } }),
   getTopPlayers: (rankType: string, limit?: number) =>
     api.get<ApiResponse<RankItem[]>>("/rank/top", { params: { rank_type: rankType, limit } }),
 };
@@ -640,11 +658,11 @@ export const agentApi = {
   getAgentInfo: () => api.get<ApiResponse<AgentInfo>>("/agent/info"),
   getSubordinates: (page?: number, pageSize?: number) =>
     api.get<ApiResponse<{ total: number; list: SubordinateItem[] }>>("/agent/subordinates", { params: { page, page_size: pageSize } }),
-  getCommissionSummary: () => api.get<ApiResponse<CommissionSummary>>("/agent/commission/summary"),
   getCommissionRecords: (page?: number, pageSize?: number) =>
-    api.get<ApiResponse<{ total: number; list: CommissionRecord[] }>>("/agent/commission/records", { params: { page, page_size: pageSize } }),
-  applyAgent: () => api.post<ApiResponse<{ result: string }>>("/agent/apply"),
-  getReferralLink: () => api.get<ApiResponse<{ referral_code: string; referral_link: string }>>("/agent/referral-link"),
+    api.get<ApiResponse<{ total: number; list: CommissionRecord[] }>>("/agent/commissions", { params: { page, page_size: pageSize } }),
+  getDashboard: () => api.get<ApiResponse<CommissionSummary>>("/agent/dashboard"),
+  requestSettlement: () => api.post<ApiResponse<{ result: string }>>("/agent/settlement"),
+  getPromoLink: () => api.post<ApiResponse<{ referral_code: string; referral_link: string }>>("/agent/promo-link"),
 };
 
 // ─── Reddot ──────────────────────────────────────────────────────────────────
@@ -656,7 +674,7 @@ export interface ReddotItem {
 }
 
 export const reddotApi = {
-  getReddots: () => api.get<ApiResponse<ReddotItem[]>>("/reddot/list"),
+  getReddots: () => api.get<ApiResponse<ReddotItem[]>>("/reddot/state"),
   markAsRead: (reddotId: number) =>
     api.post<ApiResponse<{ result: string }>>("/reddot/read", { id: reddotId }),
 };

@@ -20,7 +20,7 @@ export default function AgentPage() {
     try {
       const [infoRes, summaryRes, subsRes, recordsRes] = await Promise.all([
         agentApi.getAgentInfo(),
-        agentApi.getCommissionSummary(),
+        agentApi.getDashboard(),
         agentApi.getSubordinates(1, 20),
         agentApi.getCommissionRecords(1, 20),
       ]);
@@ -38,20 +38,7 @@ export default function AgentPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleApply = async () => {
-    setApplying(true);
-    try {
-      const res = await agentApi.applyAgent();
-      if (res.data?.code === 0) {
-        toast.success('Application submitted!');
-        await fetchData();
-      } else {
-        toast.error(res.data?.msg || 'Application failed');
-      }
-    } catch {
-      toast.error('Application failed');
-    } finally {
-      setApplying(false);
-    }
+    toast.info('Please contact support to become an agent');
   };
 
   const handleCopyReferral = () => {
