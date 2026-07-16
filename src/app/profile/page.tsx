@@ -119,7 +119,7 @@ export default function ProfilePage() {
         toast.success('Avatar updated!');
         await fetchProfile();
       } else {
-        toast.error(res.data?.msg || 'Upload failed');
+        toast.error(res.data?.message || 'Upload failed');
       }
     } catch {
       toast.error('Upload failed');
@@ -155,7 +155,7 @@ export default function ProfilePage() {
         setNewPassword('');
         setConfirmPassword('');
       } else {
-        toast.error(res.data?.msg || 'Change failed');
+        toast.error(res.data?.message || 'Change failed');
       }
     } catch {
       toast.error('Change failed');

@@ -53,7 +53,7 @@ export default function MailPage() {
         toast.success('Attachments claimed!');
         await fetchMails();
       } else {
-        toast.error(res.data?.msg || 'Claim failed');
+        toast.error(res.data?.message || 'Claim failed');
       }
     } catch {
       toast.error('Claim failed');

@@ -42,7 +42,7 @@ export default function TasksPage() {
         toast.success(`Received: ${res.data.data.item_name} x${res.data.data.quantity}`);
         await fetchTasks();
       } else {
-        toast.error(res.data?.msg || 'Claim failed');
+        toast.error(res.data?.message || 'Claim failed');
       }
     } catch {
       toast.error('Claim failed');
@@ -59,7 +59,7 @@ export default function TasksPage() {
         toast.success(`Claimed ${count} rewards!`);
         await fetchTasks();
       } else {
-        toast.error(res.data?.msg || 'Claim all failed');
+        toast.error(res.data?.message || 'Claim all failed');
       }
     } catch {
       toast.error('Claim all failed');

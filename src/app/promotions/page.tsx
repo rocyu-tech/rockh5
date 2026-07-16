@@ -42,7 +42,7 @@ export default function PromotionsPage() {
         toast.success(`Checked in! +${res.data.data.bonus_amount} bonus (${res.data.data.consecutive_days} day streak)`);
         await fetchStates();
       } else {
-        toast.error(res.data?.msg || 'Check-in failed');
+        toast.error(res.data?.message || 'Check-in failed');
       }
     } catch {
       toast.error('Check-in failed');
@@ -63,7 +63,7 @@ export default function PromotionsPage() {
         toast.success(`Received: ${res.data.data.item_name} x${res.data.data.quantity}!`);
         await fetchStates();
       } else {
-        toast.error(res.data?.msg || 'Claim failed');
+        toast.error(res.data?.message || 'Claim failed');
       }
     } catch {
       toast.error('Claim failed');
