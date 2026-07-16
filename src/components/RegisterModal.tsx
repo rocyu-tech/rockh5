@@ -48,6 +48,11 @@ export default function RegisterModal({ open, onOpenChange, switchToLogin }: Reg
       return;
     }
 
+    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      setError('Password must contain both letters and numbers');
+      return;
+    }
+
     if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
       setError('Password must contain at least one letter and one digit');
       return;

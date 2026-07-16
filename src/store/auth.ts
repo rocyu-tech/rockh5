@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { authApi, accountApi, TOKEN_KEY, REFRESH_TOKEN_KEY } from "@/lib/api";
+import { authApi, accountApi, mailApi, TOKEN_KEY, REFRESH_TOKEN_KEY } from "@/lib/api";
 import type { UserProfile, UserAssets } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api-status";
 
@@ -11,11 +11,13 @@ interface AuthState {
   isLoggedIn: boolean;
   isLoading: boolean;
   lastError: string | null;
+  unreadMailCount: number;
   login: (email: string, password: string) => Promise<boolean>;
   register: (data: { email: string; password: string; confirm_password: string; phone?: string }) => Promise<boolean>;
   logout: () => void;
   fetchProfile: () => Promise<void>;
   fetchAssets: () => Promise<void>;
+  fetchUnreadMailCount: () => Promise<void>;
   hydrate: () => void;
 }
 
@@ -27,6 +29,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoggedIn: false,
   isLoading: false,
   lastError: null,
+  unreadMailCount: 0,
 
   hydrate: () => {
     if (typeof window !== "undefined") {
@@ -112,8 +115,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await accountApi.getProfile();
       set({ user: res.data.data });
-    } catch {
-      // Silently fail on auth errors
+    } catch (err) {
+      // Auth errors (401) are handled by the axios interceptor.
+      // Log non-auth errors for debugging.
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status && status !== 401 && status !== 403) {
+        console.warn('[auth] fetchProfile failed:', status);
+      }
     }
   },
 
@@ -121,8 +129,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await accountApi.getAssets();
       set({ assets: res.data.data });
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status && status !== 401 && status !== 403) {
+        console.warn('[auth] fetchAssets failed:', status);
+      }
+    }
+  },
+
+  fetchUnreadMailCount: async () => {
+    try {
+      const res = await mailApi.getUnreadCount();
+      if (res.data?.code === 0) {
+        set({ unreadMailCount: res.data.data.unread_count });
+      }
     } catch {
-      // Silently fail on auth errors
+      // Silently fail
     }
   },
 }));

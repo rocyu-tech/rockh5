@@ -31,6 +31,15 @@ export default function GameCard({ game }: GameCardProps) {
   const [isFavorite, setIsFavorite] = useState(!!game.is_favorite);
   const isLoggedIn = useAuthStore(s => s.isLoggedIn);
 
+  const isValidGameUrl = (url: string): boolean => {
+    try {
+      const u = new URL(url);
+      return ['http:', 'https:'].includes(u.protocol);
+    } catch {
+      return false;
+    }
+  };
+
   const handlePlay = async () => {
     if (launching) return;
     if (!isLoggedIn) {
@@ -41,8 +50,10 @@ export default function GameCard({ game }: GameCardProps) {
     try {
       const res = await gameApi.launch(game.id);
       const gameUrl = res.data?.data?.launch_url || res.data?.data?.game_url;
-      if (gameUrl) {
+      if (gameUrl && isValidGameUrl(gameUrl)) {
         window.open(gameUrl, '_blank');
+      } else if (gameUrl) {
+        toast.error('Invalid game URL');
       }
     } catch (err) {
       console.error('[GameCard] launch error:', err);

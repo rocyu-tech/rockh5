@@ -524,17 +524,19 @@ export interface TaskProgress {
 
 export const taskApi = {
   getTaskConfig: async () => {
-    const [daily, weekly, growth] = await Promise.all([
+    const [daily, weekly, growth] = await Promise.allSettled([
       api.get<ApiResponse<TaskItem[]>>("/task/daily"),
       api.get<ApiResponse<TaskItem[]>>("/task/weekly"),
       api.get<ApiResponse<TaskItem[]>>("/task/growth"),
     ]);
+    const getList = (r: PromiseSettledResult<{ data: ApiResponse<TaskItem[]> }>): TaskItem[] =>
+      r.status === 'fulfilled' ? (r.value.data?.data || []) : [];
     const wrap = (list: TaskItem[], type: number): TaskTypeState => ({
       task_type: type,
       receive_all_btn: list.some(t => t.receive_status === 1) ? 1 : 0,
       task_type_state: list,
     });
-    return { data: { code: 0, data: [wrap(daily.data?.data || [], 0), wrap(weekly.data?.data || [], 1), wrap(growth.data?.data || [], 2)] } };
+    return { data: { code: 0, data: [wrap(getList(daily), 0), wrap(getList(weekly), 1), wrap(getList(growth), 2)] } };
   },
   getTaskProgress: () => api.get<ApiResponse<TaskProgress[]>>("/task/progress"),
   claimReward: (taskId: number) =>

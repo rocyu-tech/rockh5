@@ -26,15 +26,26 @@ import {
   Lock,
   X,
 } from 'lucide-react';
-import { accountApi, mailApi } from '@/lib/api';
+import { accountApi } from '@/lib/api';
 import { toast } from 'sonner';
+
+interface Transaction {
+  id: number;
+  type: 'recharge' | 'withdraw' | 'bonus' | string;
+  status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'processing' | string;
+  amount: number;
+  currency?: string;
+  description?: string;
+  order_no?: string;
+  created_at?: string;
+}
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { isLoggedIn, user, assets, fetchProfile, fetchAssets, logout } = useAuthStore();
+  const { isLoggedIn, user, assets, fetchProfile, fetchAssets, logout, unreadMailCount } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'main' | 'transactions' | 'vip'>('main');
   const [refreshing, setRefreshing] = useState(false);
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [txLoading, setTxLoading] = useState(false);
   const [txFilter, setTxFilter] = useState<string>('all');
   const apiStatus = useApiStatusContext();
@@ -45,7 +56,6 @@ export default function ProfilePage() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [unreadMail, setUnreadMail] = useState(0);
 
   // If not logged in, show login prompt
   useEffect(() => {
@@ -54,19 +64,7 @@ export default function ProfilePage() {
     }
   }, [isLoggedIn]);
 
-  // Fetch unread mail count
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    const fetchUnread = async () => {
-      try {
-        const res = await mailApi.getUnreadCount();
-        if (res.data?.code === 0) setUnreadMail(res.data.data.unread_count);
-      } catch { /* ignore */ }
-    };
-    fetchUnread();
-    const timer = setInterval(fetchUnread, 30000);
-    return () => clearInterval(timer);
-  }, [isLoggedIn]);
+  // unreadMailCount is managed by auth store (polled in AppProvider)
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -83,9 +81,9 @@ export default function ProfilePage() {
       const res = await shopApi.getOrders(params as { page?: number; page_size?: number });
       const data = res.data?.data;
       if (Array.isArray(data)) {
-        setTransactions(data);
+        setTransactions(data as Transaction[]);
       } else if (data && typeof data === 'object' && 'list' in data) {
-        setTransactions((data as any).list);
+        setTransactions((data as { list: Transaction[] }).list);
       }
     } catch {
       setTransactions([]);
@@ -283,7 +281,7 @@ export default function ProfilePage() {
             {[
               { icon: TrendingUp, label: 'Transaction History', action: () => setActiveTab('transactions'), color: '#4ecdc4' },
               { icon: Package, label: 'Backpack', action: () => router.push('/inventory'), color: '#4ecdc4' },
-              { icon: Mail, label: 'Mailbox', action: () => router.push('/mail'), color: '#60a5fa', badge: unreadMail },
+              { icon: Mail, label: 'Mailbox', action: () => router.push('/mail'), color: '#60a5fa', badge: unreadMailCount },
               { icon: Crown, label: 'VIP Club', action: () => setActiveTab('vip'), color: '#f5a623' },
               { icon: Lock, label: 'Change Password', action: () => setShowChangePassword(true), color: '#60a5fa' },
               { icon: Users, label: 'Agent Program', action: () => router.push('/agent'), desc: 'Earn up to 45% commission', color: '#a855f7' },

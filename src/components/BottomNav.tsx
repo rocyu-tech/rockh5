@@ -1,10 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Home, Gamepad2, Gift, User, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
-import { mailApi } from '@/lib/api';
 
 const tabs = [
   { id: '/', label: 'Home', icon: Home },
@@ -18,20 +16,7 @@ export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const isLoggedIn = useAuthStore(s => s.isLoggedIn);
-  const [unreadMail, setUnreadMail] = useState(0);
-
-  useEffect(() => {
-    if (!isLoggedIn) { setUnreadMail(0); return; }
-    const fetchCount = async () => {
-      try {
-        const res = await mailApi.getUnreadCount();
-        if (res.data?.code === 0) setUnreadMail(res.data.data.unread_count);
-      } catch { /* ignore */ }
-    };
-    fetchCount();
-    const timer = setInterval(fetchCount, 30000);
-    return () => clearInterval(timer);
-  }, [isLoggedIn]);
+  const unreadMail = useAuthStore(s => s.unreadMailCount);
 
   const isActive = (tabId: string) => {
     if (tabId === '/') return pathname === '/';
