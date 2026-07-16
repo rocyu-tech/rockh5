@@ -56,6 +56,12 @@ export default function ProfilePage() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editNickname, setEditNickname] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // If not logged in, show login prompt
   useEffect(() => {
@@ -159,6 +165,46 @@ export default function ProfilePage() {
       toast.error('Change failed');
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      const res = await accountApi.updateProfile({
+        nickname: editNickname || undefined,
+        phone: editPhone || undefined,
+      });
+      if (res.data?.code === 0) {
+        toast.success('Profile updated!');
+        setShowEditProfile(false);
+        await fetchProfile();
+      } else {
+        toast.error(res.data?.message || 'Update failed');
+      }
+    } catch {
+      toast.error('Update failed');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const res = await accountApi.deleteAccount();
+      if (res.data?.code === 0) {
+        toast.success('Account deleted');
+        logout();
+        router.push('/');
+      } else {
+        toast.error(res.data?.message || 'Delete failed');
+      }
+    } catch {
+      toast.error('Delete failed');
+    } finally {
+      setDeleting(false);
+      setShowDeleteAccount(false);
     }
   };
 
@@ -284,6 +330,7 @@ export default function ProfilePage() {
               { icon: Mail, label: 'Mailbox', action: () => router.push('/mail'), color: '#60a5fa', badge: unreadMailCount },
               { icon: Crown, label: 'VIP Club', action: () => setActiveTab('vip'), color: '#f5a623' },
               { icon: Lock, label: 'Change Password', action: () => setShowChangePassword(true), color: '#60a5fa' },
+              { icon: Settings, label: 'Edit Profile', action: () => setShowEditProfile(true), color: '#8892b0' },
               { icon: Users, label: 'Agent Program', action: () => router.push('/agent'), desc: 'Earn up to 45% commission', color: '#a855f7' },
             ].map((item) => (
               <button
@@ -486,6 +533,89 @@ export default function ProfilePage() {
                 className="flex-1 py-2.5 rounded-lg bg-[#f5a623] text-black text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {changingPassword ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {showEditProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-[#0d1117] rounded-2xl border border-[#1e293b] w-full max-w-sm p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-white">Edit Profile</h2>
+              <button onClick={() => setShowEditProfile(false)} className="text-[#8892b0] hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] text-[#8892b0] mb-1 block">Nickname</label>
+                <input
+                  type="text"
+                  value={editNickname}
+                  onChange={e => setEditNickname(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1e293b] rounded-lg text-sm text-white border border-[#2d3a5c] focus:border-[#f5a623] focus:outline-none"
+                  placeholder={user?.nickname || 'Enter nickname'}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[#8892b0] mb-1 block">Phone</label>
+                <input
+                  type="tel"
+                  value={editPhone}
+                  onChange={e => setEditPhone(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1e293b] rounded-lg text-sm text-white border border-[#2d3a5c] focus:border-[#f5a623] focus:outline-none"
+                  placeholder={user?.phone || 'Enter phone number'}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => setShowEditProfile(false)}
+                className="flex-1 py-2.5 rounded-lg bg-[#1e293b] text-[#8892b0] text-sm font-medium hover:bg-[#2d3a5c] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveProfile}
+                disabled={savingProfile}
+                className="flex-1 py-2.5 rounded-lg bg-[#f5a623] text-black text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {savingProfile ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Confirmation */}
+      {showDeleteAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-[#0d1117] rounded-2xl border border-[#e94560]/30 w-full max-w-sm p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-[#e94560]">Delete Account</h2>
+              <button onClick={() => setShowDeleteAccount(false)} className="text-[#8892b0] hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-[#8892b0] mb-5">
+              This action is irreversible. All your data, balance, and progress will be permanently deleted.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDeleteAccount(false)}
+                className="flex-1 py-2.5 rounded-lg bg-[#1e293b] text-[#8892b0] text-sm font-medium hover:bg-[#2d3a5c] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-lg bg-[#e94560] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Delete Forever'}
               </button>
             </div>
           </div>

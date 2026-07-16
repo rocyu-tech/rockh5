@@ -9,8 +9,9 @@ import Navbar from '@/components/Navbar';
 import {
   Wallet, CreditCard, Building, Smartphone, Zap,
   Loader2, Check, Copy, ExternalLink, AlertTriangle,
-  ArrowDownToLine, ArrowUpFromLine,
+  ArrowDownToLine, ArrowUpFromLine, Settings, Shield, X,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // === Shared types ===
 interface Channel {
@@ -555,7 +556,7 @@ export default function WalletPage() {
   const { isLoggedIn, assets, fetchAssets } = useAuthStore();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') === 'withdraw' ? 'withdraw' : 'deposit';
-  const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw' | 'settings'>(initialTab as 'deposit' | 'withdraw' | 'settings');
 
   // Sync tab when searchParams change (e.g. navigating from /deposit?tab=withdraw)
   useEffect(() => {
@@ -631,15 +632,238 @@ export default function WalletPage() {
             <ArrowUpFromLine className="w-4 h-4" />
             Withdraw
           </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'settings'
+                ? 'bg-[#8892b0]/20 text-white'
+                : 'text-[#8892b0] active:text-[#ccd6f6]'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            Settings
+          </button>
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'deposit' ? (
-          <DepositTab onGoBack={() => setActiveTab('deposit')} />
-        ) : (
-          <WithdrawTab onGoBack={() => setActiveTab('withdraw')} />
-        )}
+        {activeTab === 'deposit' && <DepositTab onGoBack={() => setActiveTab('deposit')} />}
+        {activeTab === 'withdraw' && <WithdrawTab onGoBack={() => setActiveTab('withdraw')} />}
+        {activeTab === 'settings' && <SettingsTab />}
       </main>
+    </div>
+  );
+}
+
+// === Settings Tab Component ===
+function SettingsTab() {
+  const [paymentAccounts, setPaymentAccounts] = useState<Array<{ id: number; channel_type: string; account: string; account_name: string; is_default: number }>>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [newAccountChannel, setNewAccountChannel] = useState('');
+  const [newAccountNumber, setNewAccountNumber] = useState('');
+  const [newAccountName, setNewAccountName] = useState('');
+  const [savingAccount, setSavingAccount] = useState(false);
+
+  const [showChangeWithdrawPwd, setShowChangeWithdrawPwd] = useState(false);
+  const [oldPwd, setOldPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [changingPwd, setChangingPwd] = useState(false);
+
+  useEffect(() => {
+    setLoadingAccounts(true);
+    shopApi.getPaymentAccounts().then((res) => {
+      const data = res.data?.data;
+      if (Array.isArray(data)) setPaymentAccounts(data);
+    }).catch(() => {}).finally(() => setLoadingAccounts(false));
+  }, []);
+
+  const handleAddAccount = async () => {
+    if (!newAccountChannel || !newAccountNumber) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    setSavingAccount(true);
+    try {
+      const res = await shopApi.setPaymentAccount({
+        channel_type: newAccountChannel,
+        account: newAccountNumber,
+        account_name: newAccountName,
+      });
+      if (res.data?.code === 0) {
+        toast.success('Payment account added!');
+        setShowAddAccount(false);
+        setNewAccountChannel('');
+        setNewAccountNumber('');
+        setNewAccountName('');
+        // Refresh list
+        const listRes = await shopApi.getPaymentAccounts();
+        if (Array.isArray(listRes.data?.data)) setPaymentAccounts(listRes.data.data);
+      } else {
+        toast.error(res.data?.message || 'Failed to add account');
+      }
+    } catch {
+      toast.error('Failed to add account');
+    } finally {
+      setSavingAccount(false);
+    }
+  };
+
+  const handleChangeWithdrawPwd = async () => {
+    if (!oldPwd || !newPwd) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    setChangingPwd(true);
+    try {
+      const res = await shopApi.setWithdrawPassword({
+        old_password: oldPwd,
+        new_password: newPwd,
+      });
+      if (res.data?.code === 0) {
+        toast.success('Withdraw password updated!');
+        setShowChangeWithdrawPwd(false);
+        setOldPwd('');
+        setNewPwd('');
+        setConfirmPwd('');
+      } else {
+        toast.error(res.data?.message || 'Failed to update password');
+      }
+    } catch {
+      toast.error('Failed to update password');
+    } finally {
+      setChangingPwd(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Payment Accounts */}
+      <div className="bg-[#0d1117] rounded-xl border border-[#1e293b] p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-medium text-white">Payment Accounts</h3>
+          <button
+            onClick={() => setShowAddAccount(!showAddAccount)}
+            className="text-[10px] text-[#f5a623] font-medium"
+          >
+            {showAddAccount ? 'Cancel' : '+ Add'}
+          </button>
+        </div>
+
+        {showAddAccount && (
+          <div className="space-y-2 mb-3 p-3 bg-[#1e293b] rounded-lg">
+            <input
+              type="text"
+              placeholder="Channel type (e.g. bank, usdt)"
+              value={newAccountChannel}
+              onChange={e => setNewAccountChannel(e.target.value)}
+              className="w-full px-3 py-2 bg-[#0d1117] rounded-lg text-xs text-white border border-[#2d3a5c] focus:border-[#f5a623] focus:outline-none"
+            />
+            <input
+              type="text"
+              placeholder="Account number / address"
+              value={newAccountNumber}
+              onChange={e => setNewAccountNumber(e.target.value)}
+              className="w-full px-3 py-2 bg-[#0d1117] rounded-lg text-xs text-white border border-[#2d3a5c] focus:border-[#f5a623] focus:outline-none"
+            />
+            <input
+              type="text"
+              placeholder="Account holder name (optional)"
+              value={newAccountName}
+              onChange={e => setNewAccountName(e.target.value)}
+              className="w-full px-3 py-2 bg-[#0d1117] rounded-lg text-xs text-white border border-[#2d3a5c] focus:border-[#f5a623] focus:outline-none"
+            />
+            <button
+              onClick={handleAddAccount}
+              disabled={savingAccount || !newAccountChannel || !newAccountNumber}
+              className="w-full py-2 bg-[#f5a623] text-black text-xs font-medium rounded-lg hover:opacity-90 disabled:opacity-50"
+            >
+              {savingAccount ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Save Account'}
+            </button>
+          </div>
+        )}
+
+        {loadingAccounts ? (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="w-4 h-4 text-[#f5a623] animate-spin" />
+          </div>
+        ) : paymentAccounts.length === 0 ? (
+          <p className="text-[10px] text-[#8892b0] text-center py-3">No payment accounts added</p>
+        ) : (
+          <div className="space-y-2">
+            {paymentAccounts.map(acc => (
+              <div key={acc.id} className="flex items-center gap-3 p-2 bg-[#1e293b] rounded-lg">
+                <CreditCard className="w-4 h-4 text-[#8892b0] flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-[#8892b0] uppercase">{acc.channel_type}</p>
+                  <p className="text-xs text-white truncate">{acc.account}</p>
+                  {acc.account_name && <p className="text-[10px] text-[#8892b0]">{acc.account_name}</p>}
+                </div>
+                {acc.is_default === 1 && (
+                  <span className="text-[9px] bg-[#f5a623]/20 text-[#f5a623] px-1.5 py-0.5 rounded-full">Default</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Withdraw Password */}
+      <div className="bg-[#0d1117] rounded-xl border border-[#1e293b] p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-medium text-white">Withdraw Password</h3>
+          <button
+            onClick={() => setShowChangeWithdrawPwd(!showChangeWithdrawPwd)}
+            className="text-[10px] text-[#f5a623] font-medium"
+          >
+            {showChangeWithdrawPwd ? 'Cancel' : 'Change'}
+          </button>
+        </div>
+
+        {showChangeWithdrawPwd && (
+          <div className="space-y-2 p-3 bg-[#1e293b] rounded-lg">
+            <input
+              type="password"
+              placeholder="Current withdraw password"
+              value={oldPwd}
+              onChange={e => setOldPwd(e.target.value)}
+              className="w-full px-3 py-2 bg-[#0d1117] rounded-lg text-xs text-white border border-[#2d3a5c] focus:border-[#f5a623] focus:outline-none"
+            />
+            <input
+              type="password"
+              placeholder="New withdraw password"
+              value={newPwd}
+              onChange={e => setNewPwd(e.target.value)}
+              className="w-full px-3 py-2 bg-[#0d1117] rounded-lg text-xs text-white border border-[#2d3a5c] focus:border-[#f5a623] focus:outline-none"
+            />
+            <input
+              type="password"
+              placeholder="Confirm new password"
+              value={confirmPwd}
+              onChange={e => setConfirmPwd(e.target.value)}
+              className="w-full px-3 py-2 bg-[#0d1117] rounded-lg text-xs text-white border border-[#2d3a5c] focus:border-[#f5a623] focus:outline-none"
+            />
+            <button
+              onClick={handleChangeWithdrawPwd}
+              disabled={changingPwd || !oldPwd || !newPwd}
+              className="w-full py-2 bg-[#f5a623] text-black text-xs font-medium rounded-lg hover:opacity-90 disabled:opacity-50"
+            >
+              {changingPwd ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Update Password'}
+            </button>
+          </div>
+        )}
+
+        {!showChangeWithdrawPwd && (
+          <div className="flex items-center gap-2 p-3 bg-[#1e293b] rounded-lg">
+            <Shield className="w-4 h-4 text-[#8892b0]" />
+            <p className="text-[10px] text-[#8892b0]">Set a separate password for withdrawal security</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
