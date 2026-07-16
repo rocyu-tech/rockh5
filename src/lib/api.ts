@@ -203,6 +203,8 @@ export interface Game {
   cover?: string;
   vendor_id: number;
   vendor_name?: string;
+  game_type?: string; // P0: "vendor" | "self"
+  launch_url?: string; // P0: for self-developed games
   category_id: number;
   category_name?: string;
   status: number;

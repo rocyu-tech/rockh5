@@ -49,8 +49,16 @@ export default function GameCard({ game }: GameCardProps) {
     setLaunching(true);
     try {
       const res = await gameApi.launch(game.id);
-      const gameUrl = res.data?.data?.launch_url || res.data?.data?.game_url;
-      if (gameUrl && isValidGameUrl(gameUrl)) {
+      const data = res.data?.data;
+      const gameUrl = data?.launch_url || data?.game_url;
+
+      // P0: self-developed games navigate to internal H5 page (e.g. /play/slot/xxx)
+      // instead of opening an external vendor URL.
+      if (data?.game_type === 'self' && data?.launch_url) {
+        // Use Next.js router for internal navigation
+        window.location.href = data.launch_url;
+      } else if (gameUrl && isValidGameUrl(gameUrl)) {
+        // Vendor games: open in new tab
         window.open(gameUrl, '_blank');
       } else if (gameUrl) {
         toast.error('Invalid game URL');
