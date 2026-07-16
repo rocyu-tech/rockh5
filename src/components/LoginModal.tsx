@@ -49,7 +49,7 @@ export default function LoginModal({ open, onOpenChange, switchToRegister }: Log
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-[#1a1a2e] border-[#f5a623]/20 text-[#ccd6f6]">
+      <DialogContent className="sm:max-w-md bg-[#1e293b] border-[#f5a623]/40 text-[#ccd6f6] shadow-2xl shadow-[#f5a623]/10 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="text-center text-2xl font-bold">
             <span className="text-gold-gradient">Welcome Back</span>
