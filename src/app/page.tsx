@@ -76,7 +76,7 @@ export default function Home() {
             ].map((item) => (
               <button
                 key={item.label}
-                onClick={() => item.action === 'spin' ? handleSpinClick() : handleQuickAction(item.path)}
+                onClick={() => item.action === 'spin' ? handleSpinClick() : handleQuickAction(item.path || '/')}
                 className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
               >
                 <div
