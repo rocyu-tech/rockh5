@@ -1,7 +1,6 @@
-import nextCoreWebVitals from "eslint-config-next/core-web-vitals.js";
-import nextTypescript from "eslint-config-next/typescript.js";
-
-const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
+const eslintConfig = {
+  root: true,
+  extends: ["next/core-web-vitals", "next/typescript"],
   rules: {
     "@typescript-eslint/no-explicit-any": "warn",
     "@typescript-eslint/no-unused-vars": "warn",
@@ -12,8 +11,7 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-console": "warn",
     "no-debugger": "error",
   },
-}, {
   ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts"],
-}];
+};
 
 export default eslintConfig;

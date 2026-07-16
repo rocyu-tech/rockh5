@@ -661,7 +661,7 @@ function SettingsTab() {
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [newAccountChannel, setNewAccountChannel] = useState('');
   const [newAccountNumber, setNewAccountNumber] = useState('');
-  const [newAccountName, setNewAccountName] = useState('');
+  const [newAccountTitle, setNewAccountTitle] = useState('');
   const [savingAccount, setSavingAccount] = useState(false);
 
   const [showChangeWithdrawPwd, setShowChangeWithdrawPwd] = useState(false);
@@ -686,16 +686,16 @@ function SettingsTab() {
     setSavingAccount(true);
     try {
       const res = await shopApi.setPaymentAccount({
-        channel_type: newAccountChannel,
+        account_type: parseInt(newAccountChannel) || 1,
+        title: newAccountTitle || newAccountChannel,
         account: newAccountNumber,
-        account_name: newAccountName,
       });
       if (res.data?.code === 0) {
         toast.success('Payment account added!');
         setShowAddAccount(false);
         setNewAccountChannel('');
         setNewAccountNumber('');
-        setNewAccountName('');
+        setNewAccountTitle('');
         // Refresh list
         const listRes = await shopApi.getPaymentAccounts();
         if (Array.isArray(listRes.data?.data)) setPaymentAccounts(listRes.data.data as typeof paymentAccounts);
@@ -721,8 +721,8 @@ function SettingsTab() {
     setChangingPwd(true);
     try {
       const res = await shopApi.setWithdrawPassword({
-        old_password: oldPwd,
-        new_password: newPwd,
+        old_pwd: oldPwd,
+        new_pwd: newPwd,
       });
       if (res.data?.code === 0) {
         toast.success('Withdraw password updated!');
@@ -758,7 +758,7 @@ function SettingsTab() {
           <div className="space-y-2 mb-3 p-3 bg-[#1e293b] rounded-lg">
             <input
               type="text"
-              placeholder="Channel type (e.g. bank, usdt)"
+              placeholder="Account type (1=bank, 2=crypto, etc)"
               value={newAccountChannel}
               onChange={e => setNewAccountChannel(e.target.value)}
               className="w-full px-3 py-2 bg-[#0d1117] rounded-lg text-xs text-white border border-[#2d3a5c] focus:border-[#f5a623] focus:outline-none"
@@ -772,9 +772,9 @@ function SettingsTab() {
             />
             <input
               type="text"
-              placeholder="Account holder name (optional)"
-              value={newAccountName}
-              onChange={e => setNewAccountName(e.target.value)}
+              placeholder="Title / label (optional)"
+              value={newAccountTitle}
+              onChange={e => setNewAccountTitle(e.target.value)}
               className="w-full px-3 py-2 bg-[#0d1117] rounded-lg text-xs text-white border border-[#2d3a5c] focus:border-[#f5a623] focus:outline-none"
             />
             <button
