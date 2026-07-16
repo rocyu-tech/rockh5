@@ -674,7 +674,7 @@ function SettingsTab() {
     setLoadingAccounts(true);
     shopApi.getPaymentAccounts().then((res) => {
       const data = res.data?.data;
-      if (Array.isArray(data)) setPaymentAccounts(data);
+      if (Array.isArray(data)) setPaymentAccounts(data as typeof paymentAccounts);
     }).catch(() => {}).finally(() => setLoadingAccounts(false));
   }, []);
 
@@ -698,7 +698,7 @@ function SettingsTab() {
         setNewAccountName('');
         // Refresh list
         const listRes = await shopApi.getPaymentAccounts();
-        if (Array.isArray(listRes.data?.data)) setPaymentAccounts(listRes.data.data);
+        if (Array.isArray(listRes.data?.data)) setPaymentAccounts(listRes.data.data as typeof paymentAccounts);
       } else {
         toast.error(res.data?.message || 'Failed to add account');
       }
