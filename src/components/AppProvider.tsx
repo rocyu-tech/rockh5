@@ -7,17 +7,35 @@ import LoginModal from '@/components/LoginModal';
 import RegisterModal from '@/components/RegisterModal';
 import SpinWheel from '@/components/SpinWheel';
 import ConnectionBanner from '@/components/ConnectionBanner';
+import { reddotApi, mailApi } from '@/lib/api';
 
 export default function AppProvider({ children }: { children: React.ReactNode }) {
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [spinOpen, setSpinOpen] = useState(false);
+  const [unreadMailCount, setUnreadMailCount] = useState(0);
   const { hydrate, isLoggedIn } = useAuthStore();
   const apiStatus = useApiStatus();
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
+
+  // Poll unread mail count and reddots
+  useEffect(() => {
+    if (!isLoggedIn) { setUnreadMailCount(0); return; }
+    const fetchCounts = async () => {
+      try {
+        const [mailRes] = await Promise.all([
+          mailApi.getUnreadCount().catch(() => null),
+        ]);
+        if (mailRes?.data?.code === 0) setUnreadMailCount(mailRes.data.data.unread_count);
+      } catch { /* ignore */ }
+    };
+    fetchCounts();
+    const timer = setInterval(fetchCounts, 30000);
+    return () => clearInterval(timer);
+  }, [isLoggedIn]);
 
   const handleAuthLogout = useCallback(() => {
     // Only show login modal if not already logged in

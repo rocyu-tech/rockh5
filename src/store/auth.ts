@@ -88,7 +88,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  logout: () => {
+  logout: async () => {
+    // Call backend logout API to invalidate token server-side
+    try {
+      const { api } = await import("@/lib/api");
+      await api.post("/auth/logout");
+    } catch {
+      // Ignore logout API errors — still clear local state
+    }
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     set({

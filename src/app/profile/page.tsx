@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useApiStatusContext } from '@/lib/api-status';
@@ -22,7 +22,12 @@ import {
   Package,
   RefreshCw,
   Loader2,
+  Camera,
+  Lock,
+  X,
 } from 'lucide-react';
+import { accountApi, mailApi } from '@/lib/api';
+import { toast } from 'sonner';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -33,12 +38,34 @@ export default function ProfilePage() {
   const [txLoading, setTxLoading] = useState(false);
   const [txFilter, setTxFilter] = useState<string>('all');
   const apiStatus = useApiStatusContext();
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [unreadMail, setUnreadMail] = useState(0);
 
   // If not logged in, show login prompt
   useEffect(() => {
     if (!isLoggedIn) {
       window.dispatchEvent(new CustomEvent('auth:logout'));
     }
+  }, [isLoggedIn]);
+
+  // Fetch unread mail count
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const fetchUnread = async () => {
+      try {
+        const res = await mailApi.getUnreadCount();
+        if (res.data?.code === 0) setUnreadMail(res.data.data.unread_count);
+      } catch { /* ignore */ }
+    };
+    fetchUnread();
+    const timer = setInterval(fetchUnread, 30000);
+    return () => clearInterval(timer);
   }, [isLoggedIn]);
 
   const handleRefresh = async () => {
@@ -78,6 +105,65 @@ export default function ProfilePage() {
     router.push('/');
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Avatar must be under 5MB');
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      const res = await accountApi.uploadAvatar(file);
+      if (res.data?.code === 0) {
+        toast.success('Avatar updated!');
+        await fetchProfile();
+      } else {
+        toast.error(res.data?.msg || 'Upload failed');
+      }
+    } catch {
+      toast.error('Upload failed');
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!oldPassword || !newPassword) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const res = await accountApi.changePassword({
+        old_password: oldPassword,
+        new_password: newPassword,
+      });
+      if (res.data?.code === 0) {
+        toast.success('Password changed successfully!');
+        setShowChangePassword(false);
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        toast.error(res.data?.msg || 'Change failed');
+      }
+    } catch {
+      toast.error('Change failed');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   if (!isLoggedIn) {
     return (
       <div>
@@ -108,8 +194,29 @@ export default function ProfilePage() {
         {/* User profile header */}
         <div className="mt-3 mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#f5a623] to-[#e94560] flex items-center justify-center flex-shrink-0">
-              <User className="w-8 h-8 text-white" />
+            <div
+              className="w-16 h-16 rounded-full bg-gradient-to-br from-[#f5a623] to-[#e94560] flex items-center justify-center flex-shrink-0 relative overflow-hidden cursor-pointer group"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {user?.avatar ? (
+                <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-8 h-8 text-white" />
+              )}
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {uploadingAvatar ? (
+                  <Loader2 className="w-5 h-5 text-white animate-spin" />
+                ) : (
+                  <Camera className="w-5 h-5 text-white" />
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarUpload}
+              />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-lg font-semibold text-white truncate">
@@ -176,8 +283,10 @@ export default function ProfilePage() {
             {[
               { icon: TrendingUp, label: 'Transaction History', action: () => setActiveTab('transactions'), color: '#4ecdc4' },
               { icon: Package, label: 'Backpack', action: () => router.push('/inventory'), color: '#4ecdc4' },
+              { icon: Mail, label: 'Mailbox', action: () => router.push('/mail'), color: '#60a5fa', badge: unreadMail },
               { icon: Crown, label: 'VIP Club', action: () => setActiveTab('vip'), color: '#f5a623' },
-              { icon: Users, label: 'Agent Program', action: () => {}, desc: 'Earn up to 45% commission', color: '#a855f7' },
+              { icon: Lock, label: 'Change Password', action: () => setShowChangePassword(true), color: '#60a5fa' },
+              { icon: Users, label: 'Agent Program', action: () => router.push('/agent'), desc: 'Earn up to 45% commission', color: '#a855f7' },
             ].map((item) => (
               <button
                 key={item.label}
@@ -191,7 +300,14 @@ export default function ProfilePage() {
                   <item.icon className="w-4.5 h-4.5" style={{ color: item.color }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[#ccd6f6]">{item.label}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-[#ccd6f6]">{item.label}</p>
+                    {'badge' in item && item.badge ? (
+                      <span className="min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+                        {item.badge > 99 ? '99+' : item.badge}
+                      </span>
+                    ) : null}
+                  </div>
                   {item.desc && <p className="text-[10px] text-[#8892b0] mt-0.5">{item.desc}</p>}
                 </div>
                 <ChevronRight className="w-4 h-4 text-[#8892b0]" />
@@ -316,6 +432,67 @@ export default function ProfilePage() {
           </div>
         )}
       </main>
+
+      {/* Change Password Modal */}
+      {showChangePassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-[#0d1117] rounded-2xl border border-[#1e293b] w-full max-w-sm p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-white">Change Password</h2>
+              <button onClick={() => setShowChangePassword(false)} className="text-[#8892b0] hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] text-[#8892b0] mb-1 block">Current Password</label>
+                <input
+                  type="password"
+                  value={oldPassword}
+                  onChange={e => setOldPassword(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1e293b] rounded-lg text-sm text-white border border-[#2d3a5c] focus:border-[#f5a623] focus:outline-none"
+                  placeholder="Enter current password"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[#8892b0] mb-1 block">New Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1e293b] rounded-lg text-sm text-white border border-[#2d3a5c] focus:border-[#f5a623] focus:outline-none"
+                  placeholder="Enter new password"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[#8892b0] mb-1 block">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1e293b] rounded-lg text-sm text-white border border-[#2d3a5c] focus:border-[#f5a623] focus:outline-none"
+                  placeholder="Confirm new password"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => setShowChangePassword(false)}
+                className="flex-1 py-2.5 rounded-lg bg-[#1e293b] text-[#8892b0] text-sm font-medium hover:bg-[#2d3a5c] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleChangePassword}
+                disabled={changingPassword}
+                className="flex-1 py-2.5 rounded-lg bg-[#f5a623] text-black text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {changingPassword ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

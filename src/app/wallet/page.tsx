@@ -336,6 +336,7 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
         channel_id: selectedChannel,
         amount: numAmount,
         account: account.trim() || undefined,
+        account_name: accountName.trim() || undefined,
       });
       const data = res.data?.data;
       if (data?.order_no) {

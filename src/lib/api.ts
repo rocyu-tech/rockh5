@@ -209,6 +209,7 @@ export interface Game {
   hot?: boolean;
   new?: boolean;
   tag?: string;
+  is_favorite?: boolean;
 }
 
 export interface GameListResponse {
@@ -274,6 +275,8 @@ export const authApi = {
 
   refresh: (refreshToken: string) =>
     api.post<ApiResponse<{ access_token: string; refresh_token: string }>>("/auth/refresh", { refresh_token: refreshToken }),
+
+  logout: () => api.post<ApiResponse<{ result: string }>>("/auth/logout"),
 };
 
 // Lobby
@@ -290,6 +293,8 @@ export const lobbyApi = {
 export const gameApi = {
   launch: (id: number) => api.get<ApiResponse<{ game_url: string; launch_url: string; session_token: string; vendor: string }>>(`/game/launch/${id}`),
   getVendors: () => api.get<ApiResponse<GameVendor[]>>("/game/vendors"),
+  toggleFavorite: (gameId: number) => api.post<ApiResponse<{ is_favorite: boolean }>>("/game/manage/favorite", { game_id: gameId }),
+  getRecentGames: () => api.get<ApiResponse<Game[]>>("/game/manage/recent"),
 };
 
 // Account
@@ -297,17 +302,39 @@ export const accountApi = {
   getProfile: () => api.get<ApiResponse<UserProfile>>("/account/profile"),
   updateProfile: (data: Partial<UserProfile>) => api.put<ApiResponse<UserProfile>>("/account/profile", data),
   getAssets: () => api.get<ApiResponse<UserAssets>>("/account/assets"),
+  changePassword: (data: { old_password: string; new_password: string }) =>
+    api.post<ApiResponse<{ result: string }>>("/account/change-password", data),
+  uploadAvatar: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post<ApiResponse<{ avatar_url: string }>>("/account/avatar", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 };
 
 // VIP
 export const vipApi = {
   getLevels: () => api.get<ApiResponse<VIPLevel[]>>("/vip/levels"),
   getInfo: () => api.get<ApiResponse<{ level: number; progress: number }>>("/vip/info"),
+  getBenefits: () => api.get<ApiResponse<{ level: number; level_name: string; benefits: string[] }>>("/vip/benefits"),
 };
 
 // Activity
 export const activityApi = {
   getList: () => api.get<ApiResponse<Activity[]>>("/activity/list"),
+
+  // Check-in
+  checkIn: () => api.post<ApiResponse<{ bonus_amount: number; consecutive_days: number }>>("/activity/check-in"),
+  getCheckInState: () => api.get<ApiResponse<{ checked_today: boolean; consecutive_days: number; history: Array<{ date: string; bonus: number }> }>>("/activity/check-in/state"),
+  getCheckInConfig: () => api.get<ApiResponse<{ daily_bonus: number; streak_bonuses: Record<number, number> }>>("/activity/check-in/config"),
+
+  // Recharge bonus
+  claimRechargeBonus: () => api.post<ApiResponse<{ bonus_amount: number }>>("/activity/recharge-bonus"),
+
+  // Timed gift
+  claimTimedGift: () => api.post<ApiResponse<{ item_id: number; item_name: string; quantity: number }>>("/activity/timed-gift"),
+  getTimedGiftStatus: () => api.get<ApiResponse<{ available: boolean; next_available_at: string; cooldown_hours: number }>>("/activity/timed-gift/status"),
 };
 
 // Shop
@@ -458,4 +485,178 @@ export const wheelApi = {
   getState: () => api.get<ApiResponse<WheelState>>("/activity/spin-wheel/state"),
   spin: (useFree?: boolean) =>
     api.post<ApiResponse<SpinResult>>("/activity/spin-wheel", useFree !== undefined ? { use_free: useFree } : {}),
+};
+
+// ─── Task ────────────────────────────────────────────────────────────────────
+export interface TaskItem {
+  task_id: number;
+  task_type: number;
+  task_name: string;
+  task_description: string;
+  task_reward: number;
+  task_status: number;
+  task_progress: number;
+  task_target: number;
+  receive_status: number;
+  link_url?: string;
+  link_type?: string;
+  task_icon?: string;
+}
+
+export interface TaskTypeState {
+  receive_all_btn: number;
+  task_type_state: TaskItem[];
+}
+
+export interface TaskProgress {
+  task_list: TaskItem[];
+  task_type: number;
+  task_name: string;
+}
+
+export const taskApi = {
+  getTaskConfig: () => api.get<ApiResponse<TaskTypeState[]>>("/task/config"),
+  getTaskProgress: () => api.get<ApiResponse<TaskProgress[]>>("/task/progress"),
+  claimReward: (taskId: number) =>
+    api.post<ApiResponse<{ item_id: number; item_name: string; quantity: number }>>("/task/receive", { task_id: taskId }),
+  claimAllRewards: (taskType?: number) =>
+    api.post<ApiResponse<{ count: number; items: Array<{ item_id: number; item_name: string; quantity: number }> }>>("/task/receive-all", taskType !== undefined ? { task_type: taskType } : {}),
+};
+
+// ─── Mail ────────────────────────────────────────────────────────────────────
+export interface MailItem {
+  mail_id: number;
+  title: string;
+  content: string;
+  read_flag: number;
+  receive_flag: number;
+  is_collect: number;
+  mail_type: number;
+  from_name: string;
+  created_at: string;
+  expire_at: string;
+  attachment?: Array<{
+    item_id: number;
+    item_name: string;
+    quantity: number;
+    icon: string;
+  }>;
+}
+
+export interface MailListResult {
+  mail_type: number;
+  mail_count: number;
+  new_mail_count: number;
+  unread_mail_count: number;
+  list: MailItem[];
+}
+
+export const mailApi = {
+  getMailbox: () => api.get<ApiResponse<MailListResult>>("/mail/mailbox"),
+  readMail: (id: number) =>
+    api.post<ApiResponse<{ mail_id: number; title: string; content: string; attachment?: Array<{ item_id: number; item_name: string; quantity: number; icon: string }> }>>("/mail/read", { mail_id: id }),
+  deleteMail: (ids: number[]) =>
+    api.post<ApiResponse<{ result: string }>>("/mail/delete", { mail_ids: ids }),
+  claimMailAttachment: (id: number) =>
+    api.post<ApiResponse<{ items: Array<{ item_id: number; item_name: string; quantity: number }> }>>("/mail/claim-attachment", { mail_id: id }),
+  getUnreadCount: () =>
+    api.get<ApiResponse<{ unread_count: number }>>("/mail/unread-count"),
+};
+
+// ─── Rank ────────────────────────────────────────────────────────────────────
+export interface RankItem {
+  rank: number;
+  user_id: number;
+  nickname: string;
+  avatar: string;
+  vip_level: number;
+  total_amount: number;
+}
+
+export interface RankListResult {
+  my_rank?: RankItem;
+  rank_type: string;
+  period: string;
+  total_count: number;
+  rank_list: RankItem[];
+}
+
+export const rankApi = {
+  getRankList: (rankType: string, period?: string, page?: number) =>
+    api.get<ApiResponse<RankListResult>>("/rank/list", { params: { rank_type: rankType, period, page } }),
+  getMyRank: (rankType: string) =>
+    api.get<ApiResponse<{ my_rank: RankItem }>>("/rank/my", { params: { rank_type: rankType } }),
+  getTopPlayers: (rankType: string, limit?: number) =>
+    api.get<ApiResponse<RankItem[]>>("/rank/top", { params: { rank_type: rankType, limit } }),
+};
+
+// ─── Agent ───────────────────────────────────────────────────────────────────
+export interface AgentInfo {
+  user_id: number;
+  nickname: string;
+  agent_level: number;
+  commission_rate: number;
+  total_commission: number;
+  available_commission: number;
+  withdrawn_commission: number;
+  subordinate_count: number;
+  direct_subordinate_count: number;
+  agent_status: number;
+  referral_code: string;
+  referral_link: string;
+  created_at: string;
+}
+
+export interface SubordinateItem {
+  user_id: number;
+  nickname: string;
+  avatar: string;
+  vip_level: number;
+  total_bet: number;
+  commission: number;
+  register_time: string;
+  last_active_time: string;
+}
+
+export interface CommissionRecord {
+  record_id: number;
+  commission_type: number;
+  amount: number;
+  nickname: string;
+  created_at: string;
+}
+
+export interface CommissionSummary {
+  today_commission: number;
+  yesterday_commission: number;
+  this_month_commission: number;
+  last_month_commission: number;
+  total_commission: number;
+  available_commission: number;
+  pending_commission: number;
+}
+
+export const agentApi = {
+  getAgentInfo: () => api.get<ApiResponse<AgentInfo>>("/agent/info"),
+  getSubordinates: (page?: number, pageSize?: number) =>
+    api.get<ApiResponse<{ total: number; list: SubordinateItem[] }>>("/agent/subordinates", { params: { page, page_size: pageSize } }),
+  getCommissionSummary: () => api.get<ApiResponse<CommissionSummary>>("/agent/commission/summary"),
+  getCommissionRecords: (page?: number, pageSize?: number) =>
+    api.get<ApiResponse<{ total: number; list: CommissionRecord[] }>>("/agent/commission/records", { params: { page, page_size: pageSize } }),
+  applyAgent: () => api.post<ApiResponse<{ result: string }>>("/agent/apply"),
+  getReferralLink: () => api.get<ApiResponse<{ referral_code: string; referral_link: string }>>("/agent/referral-link"),
+};
+
+// ─── Reddot ──────────────────────────────────────────────────────────────────
+export interface ReddotItem {
+  id: number;
+  key: string;
+  is_read: number;
+  created_at: string;
+}
+
+export const reddotApi = {
+  getReddots: () => api.get<ApiResponse<ReddotItem[]>>("/reddot/list"),
+  markAsRead: (reddotId: number) =>
+    api.post<ApiResponse<{ result: string }>>("/reddot/read", { id: reddotId }),
 };

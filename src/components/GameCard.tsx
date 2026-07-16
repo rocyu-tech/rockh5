@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Play, Flame, Star, Sparkles } from 'lucide-react';
+import { Play, Flame, Star, Sparkles, Heart } from 'lucide-react';
 import { gameApi, type Game } from '@/lib/api';
+import { useAuthStore } from '@/store/auth';
+import { toast } from 'sonner';
 
 const gameGradients = [
   'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -26,9 +28,15 @@ interface GameCardProps {
 export default function GameCard({ game }: GameCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [launching, setLaunching] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(!!game.is_favorite);
+  const isLoggedIn = useAuthStore(s => s.isLoggedIn);
 
   const handlePlay = async () => {
     if (launching) return;
+    if (!isLoggedIn) {
+      window.dispatchEvent(new CustomEvent('auth:logout'));
+      return;
+    }
     setLaunching(true);
     try {
       const res = await gameApi.launch(game.id);
@@ -40,6 +48,23 @@ export default function GameCard({ game }: GameCardProps) {
       console.error('[GameCard] launch error:', err);
     } finally {
       setLaunching(false);
+    }
+  };
+
+  const handleFavorite = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isLoggedIn) {
+      window.dispatchEvent(new CustomEvent('auth:logout'));
+      return;
+    }
+    try {
+      const res = await gameApi.toggleFavorite(game.id);
+      if (res.data?.code === 0) {
+        setIsFavorite(res.data.data.is_favorite);
+        toast.success(res.data.data.is_favorite ? 'Added to favorites' : 'Removed from favorites');
+      }
+    } catch {
+      toast.error('Failed to update favorite');
     }
   };
 
@@ -89,6 +114,16 @@ export default function GameCard({ game }: GameCardProps) {
             </span>
           )}
         </div>
+
+        {/* Favorite button */}
+        <button
+          onClick={handleFavorite}
+          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center hover:bg-black/60 transition-colors z-10"
+        >
+          <Heart
+            className={`w-3.5 h-3.5 transition-colors ${isFavorite ? 'text-[#e94560] fill-[#e94560]' : 'text-white/60'}`}
+          />
+        </button>
 
         {/* Play overlay - shows on hover (desktop) or tap (mobile) */}
         <div

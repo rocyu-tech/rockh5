@@ -1,18 +1,37 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Gamepad2, Gift, User } from 'lucide-react';
+import { Home, Gamepad2, Gift, User, CheckCircle2 } from 'lucide-react';
+import { useAuthStore } from '@/store/auth';
+import { mailApi } from '@/lib/api';
 
 const tabs = [
   { id: '/', label: 'Home', icon: Home },
   { id: '/games', label: 'Games', icon: Gamepad2 },
+  { id: '/tasks', label: 'Tasks', icon: CheckCircle2 },
   { id: '/promotions', label: 'Promos', icon: Gift },
-  { id: '/profile', label: 'Profile', icon: User },
+  { id: '/profile', label: 'Profile', icon: User, showMailBadge: true },
 ];
 
 export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const isLoggedIn = useAuthStore(s => s.isLoggedIn);
+  const [unreadMail, setUnreadMail] = useState(0);
+
+  useEffect(() => {
+    if (!isLoggedIn) { setUnreadMail(0); return; }
+    const fetchCount = async () => {
+      try {
+        const res = await mailApi.getUnreadCount();
+        if (res.data?.code === 0) setUnreadMail(res.data.data.unread_count);
+      } catch { /* ignore */ }
+    };
+    fetchCount();
+    const timer = setInterval(fetchCount, 30000);
+    return () => clearInterval(timer);
+  }, [isLoggedIn]);
 
   const isActive = (tabId: string) => {
     if (tabId === '/') return pathname === '/';
@@ -35,7 +54,14 @@ export default function BottomNav() {
                   : 'text-[#8892b0] active:text-[#ccd6f6]'
               }`}
             >
-              <Icon className={`w-5 h-5 transition-transform duration-200 ${active ? 'scale-110' : ''}`} />
+              <div className="relative">
+                <Icon className={`w-5 h-5 transition-transform duration-200 ${active ? 'scale-110' : ''}`} />
+                {tab.showMailBadge && unreadMail > 0 && (
+                  <span className="absolute -top-1 -right-2 min-w-[14px] h-[14px] flex items-center justify-center bg-red-500 text-white text-[8px] font-bold rounded-full px-0.5">
+                    {unreadMail > 99 ? '99+' : unreadMail}
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] font-medium">{tab.label}</span>
               {active && (
                 <div className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#f5a623]" />
