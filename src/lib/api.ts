@@ -293,7 +293,7 @@ export const lobbyApi = {
 
 // Game
 export const gameApi = {
-  launch: (id: number) => api.get<ApiResponse<{ game_url: string; launch_url: string; session_token: string; vendor: string }>>(`/game/launch/${id}`),
+  launch: (id: number) => api.get<ApiResponse<{ game_url: string; launch_url: string; session_token: string; vendor: string; game_type?: string; game_id?: string; game_info_id?: number }>>(`/game/launch/${id}`),
   getVendors: () => api.get<ApiResponse<GameVendor[]>>("/game/vendors"),
   toggleFavorite: (gameId: number) => api.post<ApiResponse<{ is_favorite: boolean }>>("/game/manage/favorite", { game_id: gameId }),
   getRecentGames: () => api.get<ApiResponse<Game[]>>("/game/manage/recent"),

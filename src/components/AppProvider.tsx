@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { useApiStatus, ApiStatusContext } from '@/lib/api-status';
 import { useAuthStore } from '@/store/auth';
 import LoginModal from '@/components/LoginModal';
@@ -13,6 +14,10 @@ export default function AppProvider({ children }: { children: React.ReactNode })
   const [spinOpen, setSpinOpen] = useState(false);
   const { hydrate, isLoggedIn, fetchUnreadMailCount } = useAuthStore();
   const apiStatus = useApiStatus();
+  const pathname = usePathname();
+  // P0: when on a full-screen game page, drop the `pb-14` bottom padding
+  // that reserves space for BottomNav (BottomNav returns null on /play/*).
+  const isGameRoute = pathname?.startsWith('/play/') ?? false;
 
   useEffect(() => {
     hydrate();
@@ -71,7 +76,7 @@ export default function AppProvider({ children }: { children: React.ReactNode })
 
   return (
     <ApiStatusContext.Provider value={apiStatus}>
-      <div className={`min-h-screen flex flex-col bg-[#0a0a1a] pb-14 ${apiStatus.isOffline ? 'pt-10' : ''}`}>
+      <div className={`min-h-screen flex flex-col bg-[#0a0a1a] ${isGameRoute ? '' : 'pb-14'} ${apiStatus.isOffline ? 'pt-10' : ''}`}>
         {/* Background decoration */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-[#f5a623]/3 blur-[100px]" />

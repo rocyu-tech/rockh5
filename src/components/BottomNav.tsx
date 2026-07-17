@@ -23,6 +23,12 @@ export default function BottomNav() {
     return pathname.startsWith(tabId);
   };
 
+  // P0 FIX: hide BottomNav on full-screen game pages so it doesn't overlay
+  // the game UI. The 4 self-developed games are immersive single-task screens.
+  if (pathname.startsWith('/play/')) {
+    return null;
+  }
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#0a0a1a]/95 backdrop-blur-md border-t border-[#f5a623]/15">
       <div className="flex items-center justify-around h-14 max-w-lg mx-auto">

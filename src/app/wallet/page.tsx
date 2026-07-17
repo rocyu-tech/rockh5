@@ -552,7 +552,13 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
 }
 
 // === Main Wallet Page ===
-export default function WalletPage() {
+// P0 FIX: Next.js 15 requires useSearchParams() to be wrapped in <Suspense>.
+// Splitting the page into a thin wrapper (default export, with Suspense) and
+// an inner component that actually calls useSearchParams() silences the
+// "missing-suspense-with-csr-bailout" prerender error.
+import { Suspense } from 'react';
+
+function WalletPageInner() {
   const { isLoggedIn, assets, fetchAssets } = useAuthStore();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') === 'withdraw' ? 'withdraw' : 'deposit';
@@ -865,5 +871,13 @@ function SettingsTab() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function WalletPage() {
+  return (
+    <Suspense fallback={<div className="pt-32 text-center text-[#8892b0]">Loading wallet…</div>}>
+      <WalletPageInner />
+    </Suspense>
   );
 }
