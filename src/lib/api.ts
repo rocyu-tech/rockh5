@@ -279,7 +279,65 @@ export const authApi = {
     api.post<ApiResponse<{ access_token: string; refresh_token: string }>>("/auth/refresh", { refresh_token: refreshToken }),
 
   logout: () => api.post<ApiResponse<{ result: string }>>("/auth/logout"),
+
+  // P1: password reset — 2-step flow.
+  //   1. requestPasswordReset(email) → backend generates a 64-char hex token,
+  //      stores it in Redis with 15min TTL, and (in dev) logs the token.
+  //      In prod with SMTP wired, it emails a reset link.
+  //   2. confirmPasswordReset(token, new_password) → validates token, sets
+  //      new password, deletes token, force-logs-out all existing sessions.
+  requestPasswordReset: (email: string) =>
+    api.post<ApiResponse<{ message: string }>>("/auth/password-reset/request", { email }, { _noAuth: true } as object),
+  confirmPasswordReset: (token: string, newPassword: string) =>
+    api.post<ApiResponse<{ message: string }>>("/auth/password-reset/confirm", { token, new_password: newPassword }, { _noAuth: true } as object),
 };
+
+// VIP — P1
+export const vipApi = {
+  // Returns translated levels. Pass `lang` to get localized benefit names.
+  // The VIPLevel interface (above) is the canonical shape used by existing
+  // components; we keep the response typed as VIPLevel[] for compatibility.
+  getLevels: (lang?: string) =>
+    api.get<ApiResponse<VIPLevel[]>>("/vip/levels", { params: lang ? { lang } : undefined }),
+  getInfo: () =>
+    api.get<ApiResponse<{
+      level: number;
+      growth: number;
+      progress: number;
+      next_level?: { level: number; name: string; growth_required: number } | Record<string, never>;
+    }>>("/vip/info"),
+  upgrade: () => api.post<ApiResponse<{ current_level: number; upgraded: boolean; old_level: number; new_level: number }>>("/vip/upgrade", {}),
+};
+
+// Game history — P1
+export const historyApi = {
+  list: (params: { type?: 'all' | 'slot' | 'poker' | 'baccarat' | 'dragon'; page?: number; page_size?: number } = {}) =>
+    api.get<ApiResponse<{
+      list: Array<{
+        id: number;
+        game_type: 'slot' | 'poker' | 'baccarat' | 'dragon';
+        game_id: string;
+        bet_amount: number;
+        win_amount: number;
+        net: number;
+        status: string;
+        is_free_spin?: boolean;
+        duration?: number;
+        player_ids?: number[];
+        winner_id?: number;
+        hand_rank?: string;
+        rake?: number;
+        reel_result?: number[][];
+        paylines_hit?: Array<{ line: number; symbols: number[]; payout: number }>;
+        created_at: string;
+      }>;
+      total: number;
+      page: number;
+      page_size: number;
+      has_more: boolean;
+    }>>("/game/manage/history", { params }),
+};
+
 
 // Lobby
 export const lobbyApi = {
@@ -319,13 +377,8 @@ export const accountApi = {
   deleteAccount: () => api.post<ApiResponse<{ result: string }>>("/account/delete-account"),
 };
 
-// VIP
-export const vipApi = {
-  getLevels: () => api.get<ApiResponse<VIPLevel[]>>("/vip/levels"),
-  getInfo: () => api.get<ApiResponse<{ level: number; progress: number }>>("/vip/info"),
-  getBenefits: () => api.get<ApiResponse<{ level: number; level_name: string; benefits: string[] }>>("/vip/benefits"),
-  upgrade: () => api.post<ApiResponse<{ result: string; new_level?: number }>>("/vip/upgrade"),
-};
+// VIP — original declaration was here; P1 replaced it with the typed
+// version above (line ~295). Section marker kept so git diff is readable.
 
 // Activity
 export const activityApi = {

@@ -25,9 +25,13 @@ import {
   Camera,
   Lock,
   X,
+  History,
+  KeyRound,
+  Languages,
 } from 'lucide-react';
 import { accountApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { useLocale } from '@/i18n/provider';
 
 interface Transaction {
   id: number;
@@ -43,6 +47,8 @@ interface Transaction {
 export default function ProfilePage() {
   const router = useRouter();
   const { isLoggedIn, user, assets, fetchProfile, fetchAssets, logout, unreadMailCount } = useAuthStore();
+  const { locale, setLocale } = useLocale();
+  const currentLocaleName = locale === 'zh' ? '中文' : 'English';
   const [activeTab, setActiveTab] = useState<'main' | 'transactions' | 'vip'>('main');
   const [refreshing, setRefreshing] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -61,6 +67,8 @@ export default function ProfilePage() {
   const [editPhone, setEditPhone] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  // P1: language switcher state
+  const [showLangSwitcher, setShowLangSwitcher] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   // If not logged in, show login prompt
@@ -328,10 +336,13 @@ export default function ProfilePage() {
               { icon: TrendingUp, label: 'Transaction History', action: () => setActiveTab('transactions'), color: '#4ecdc4' },
               { icon: Package, label: 'Backpack', action: () => router.push('/inventory'), color: '#4ecdc4' },
               { icon: Mail, label: 'Mailbox', action: () => router.push('/mail'), color: '#60a5fa', badge: unreadMailCount },
-              { icon: Crown, label: 'VIP Club', action: () => setActiveTab('vip'), color: '#f5a623' },
+              { icon: Crown, label: 'VIP Club', action: () => router.push('/vip'), color: '#f5a623' },
+              { icon: History, label: 'Game History', action: () => router.push('/history'), color: '#a855f7' },
               { icon: Lock, label: 'Change Password', action: () => setShowChangePassword(true), color: '#60a5fa' },
               { icon: Settings, label: 'Edit Profile', action: () => setShowEditProfile(true), color: '#8892b0' },
               { icon: Users, label: 'Agent Program', action: () => router.push('/agent'), desc: 'Earn up to 45% commission', color: '#a855f7' },
+              { icon: KeyRound, label: 'Forgot Password', action: () => router.push('/forgot-password'), color: '#8892b0' },
+              { icon: Languages, label: 'Language', action: () => setShowLangSwitcher(true), desc: currentLocaleName, color: '#60a5fa' },
             ].map((item) => (
               <button
                 key={item.label}
@@ -618,6 +629,60 @@ export default function ProfilePage() {
                 {deleting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Delete Forever'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* P1: Language Switcher Modal */}
+      {showLangSwitcher && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowLangSwitcher(false)}
+        >
+          <div
+            className="w-full sm:max-w-sm bg-[#1a1a2e] border border-[#f5a623]/20 rounded-t-2xl sm:rounded-2xl p-4 space-y-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-base font-bold text-white">
+                <Languages className="w-4 h-4 inline mr-2 text-[#f5a623]" />
+                Language
+              </h3>
+              <button
+                onClick={() => setShowLangSwitcher(false)}
+                className="text-[#8892b0] hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {([
+              { code: 'en' as const, label: 'English', native: 'English' },
+              { code: 'zh' as const, label: 'Chinese', native: '中文' },
+            ]).map((opt) => (
+              <button
+                key={opt.code}
+                onClick={() => {
+                  setLocale(opt.code);
+                  setShowLangSwitcher(false);
+                  toast.success(opt.native);
+                }}
+                className={`w-full p-3 rounded-lg flex items-center justify-between transition-colors ${
+                  locale === opt.code
+                    ? 'bg-[#f5a623]/15 border border-[#f5a623]/40'
+                    : 'bg-[#0a0a1a] hover:bg-[#16213e] border border-transparent'
+                }`}
+              >
+                <span className="text-sm font-medium text-white">{opt.native}</span>
+                {locale === opt.code && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#f5a623] text-black font-bold">
+                    ACTIVE
+                  </span>
+                )}
+              </button>
+            ))}
+            <p className="text-[10px] text-[#8892b0] text-center pt-2">
+              More languages coming soon (vi, th)
+            </p>
           </div>
         </div>
       )}

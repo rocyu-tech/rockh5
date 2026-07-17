@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import BottomNav from "@/components/BottomNav";
 import AppProvider from "@/components/AppProvider";
+import { I18nProvider } from "@/i18n/provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,10 +53,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
-        <AppProvider>
-          {children}
-          <BottomNav />
-        </AppProvider>
+        <I18nProvider>
+          <AppProvider>
+            {children}
+            <BottomNav />
+          </AppProvider>
+        </I18nProvider>
         <Toaster />
       </body>
     </html>
