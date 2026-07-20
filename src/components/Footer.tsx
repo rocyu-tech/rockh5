@@ -1,12 +1,35 @@
 'use client';
 
+import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
 import { Gamepad2, Mail, Shield, HelpCircle } from 'lucide-react';
 
-const footerLinks = {
-  'Games': ['Slots', 'Live Casino', 'Sports Betting', 'Table Games', 'Fishing', 'Crash Games'],
-  'Support': ['Help Center', 'FAQ', 'Live Chat', 'Contact Us', 'Terms of Service', 'Privacy Policy'],
-  'Company': ['About Us', 'Affiliate Program', 'Responsible Gaming', 'Fair Play', 'Licensing'],
+// P0-9 FIX: replaced the no-op <button> links with real Next.js <Link>s
+// to the legal pages. Each link now resolves to a real page route.
+const footerLinks: Record<string, { label: string; href: string }[]> = {
+  Games: [
+    { label: 'Slots', href: '/games?category=slots' },
+    { label: 'Live Casino', href: '/games?category=live' },
+    { label: 'Sports Betting', href: '/games?category=sports' },
+    { label: 'Table Games', href: '/games?category=table' },
+    { label: 'Fishing', href: '/games?category=fishing' },
+    { label: 'Crash Games', href: '/games?category=crash' },
+  ],
+  Support: [
+    { label: 'Help Center', href: '/help' },
+    { label: 'FAQ', href: '/help#faq' },
+    { label: 'Live Chat', href: '/help#chat' },
+    { label: 'Contact Us', href: '/help#contact' },
+    { label: 'Terms of Service', href: '/legal/terms' },
+    { label: 'Privacy Policy', href: '/legal/privacy' },
+  ],
+  Company: [
+    { label: 'About Us', href: '/about' },
+    { label: 'Affiliate Program', href: '/agent' },
+    { label: 'Responsible Gaming', href: '/legal/responsible-gaming' },
+    { label: 'Fair Play', href: '/legal/fair-play' },
+    { label: 'Licensing', href: '/legal/licensing' },
+  ],
 };
 
 const socialLinks = [
@@ -46,7 +69,7 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Links */}
+          {/* Links — now real Next.js Links */}
           {Object.entries(footerLinks).map(([title, links]) => (
             <div key={title}>
               <h4 className="text-sm font-semibold text-[#f5a623] mb-4 uppercase tracking-wider">
@@ -54,10 +77,13 @@ export default function Footer() {
               </h4>
               <ul className="space-y-2.5">
                 {links.map((link) => (
-                  <li key={link}>
-                    <button className="text-sm text-[#8892b0] hover:text-[#ccd6f6] transition-colors py-1.5 text-left active:text-[#f5a623]">
-                      {link}
-                    </button>
+                  <li key={link.label}>
+                    <Link
+                      href={link.href}
+                      className="text-sm text-[#8892b0] hover:text-[#ccd6f6] transition-colors py-1.5 text-left active:text-[#f5a623]"
+                    >
+                      {link.label}
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -74,10 +100,10 @@ export default function Footer() {
               <Shield className="w-3.5 h-3.5 text-[#4ecdc4]" />
               <span>SSL Encrypted</span>
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-[#8892b0]">
+            <Link href="/legal/responsible-gaming" className="flex items-center gap-1.5 text-xs text-[#8892b0] hover:text-[#f5a623]">
               <HelpCircle className="w-3.5 h-3.5 text-[#f5a623]" />
-              <span>18+ Only</span>
-            </div>
+              <span>18+ Only · Play Responsibly</span>
+            </Link>
             <div className="flex items-center gap-1.5 text-xs text-[#8892b0]">
               <Mail className="w-3.5 h-3.5 text-[#a855f7]" />
               <span>support@rockgame.com</span>

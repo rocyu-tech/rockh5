@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import BottomNav from "@/components/BottomNav";
 import AppProvider from "@/components/AppProvider";
+import AgeGate from "@/components/AgeGate";
 import { I18nProvider } from "@/i18n/provider";
 
 const geistSans = Geist({
@@ -57,6 +58,8 @@ export default function RootLayout({
           <AppProvider>
             {children}
             <BottomNav />
+            {/* P0-9: age gate — shown once per browser (cookie-backed). */}
+            <AgeGate />
           </AppProvider>
         </I18nProvider>
         <Toaster />
