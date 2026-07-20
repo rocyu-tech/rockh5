@@ -17,6 +17,10 @@ interface WSOptions {
   onError?: (err: Event) => void;
 }
 
+// P0-7: registry of active WS clients so the global 'auth:token-refreshed'
+// listener can update all of them when the access token is rotated.
+const activeClients = new Set<GameWSClient>();
+
 export class GameWSClient {
   private ws: WebSocket | null = null;
   private url: string;
@@ -39,10 +43,19 @@ export class GameWSClient {
     this.onOpenCb = opts.onOpen;
     this.onCloseCb = opts.onClose;
     this.onErrorCb = opts.onError;
+    // P0-7: register this client so it receives token refresh events.
+    activeClients.add(this);
   }
 
   connect() {
     this.isManualClose = false;
+    // P0-7: re-read token from localStorage on every connect so reconnects
+    // don't reuse a stale token (the axios interceptor may have rotated it
+    // since this client was constructed).
+    if (typeof window !== 'undefined') {
+      const fresh = localStorage.getItem('rockgame_token');
+      if (fresh) this.token = fresh;
+    }
     const wsUrl = `${this.url}?token=${encodeURIComponent(this.token)}`;
     this.ws = new WebSocket(wsUrl);
 
@@ -156,11 +169,49 @@ export class GameWSClient {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     this.ws?.close();
     this.ws = null;
+    // P0-7: unregister so we no longer receive token refresh events.
+    activeClients.delete(this);
   }
 
   get isConnected() {
     return this.ws?.readyState === WebSocket.OPEN;
   }
+
+  // P0-7: refresh the token used for WebSocket auth.
+  //
+  // Browsers cannot set the Authorization header on a native WebSocket()
+  // upgrade request, so the JWT is passed as ?token= in the query string.
+  // The token is captured at construction time and reused for reconnects —
+  // but access tokens expire every 15 minutes. Without this method, a
+  // long-lived poker session would lose its WS connection on the next
+  // reconnect attempt (the stale token gets 401).
+  //
+  // The axios response interceptor calls this method (via the global
+  // 'auth:token-refreshed' window event) whenever the access token is
+  // rotated. We update this.token and, if the connection is currently
+  // OPEN, do nothing (the existing connection is still valid until the
+  // server closes it). If we're in a reconnect backoff, the next
+  // connect() call will pick up the new token via the localStorage read
+  // in connect().
+  refreshToken(newToken: string) {
+    if (!newToken || newToken === this.token) return;
+    this.token = newToken;
+    // No need to reconnect if currently OPEN — the existing connection
+    // was authenticated with the old (still-valid) token. The new token
+    // will be used on the next connect() cycle.
+  }
+}
+
+// P0-7: subscribe to global 'auth:token-refreshed' events so all
+// GameWSClient instances update their token when axios rotates it.
+// The registry is declared at the top of this file (activeClients).
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth:token-refreshed', (event: Event) => {
+    const detail = (event as CustomEvent).detail as { token: string } | undefined;
+    if (detail?.token) {
+      activeClients.forEach((c) => c.refreshToken(detail.token));
+    }
+  });
 }
 
 // Helper: build WS URL from HTTP backend URL

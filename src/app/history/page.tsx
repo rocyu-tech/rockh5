@@ -19,6 +19,7 @@ import { historyApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import Navbar from '@/components/Navbar';
 import { toast } from 'sonner';
+import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
 
 type GameType = 'all' | 'slot' | 'poker' | 'baccarat' | 'dragon';
 
@@ -133,7 +134,7 @@ export default function HistoryPage() {
     { value: 'dragon', label: t('history.filterDragon') },
   ];
 
-  const fmtMoney = (n: number) => (n / 100).toFixed(2);
+  const fmtMoney = (n: number) => fmtMoneyPlain(n);
   const fmtTime = (s: string) => {
     // Backend already formats as "2006-01-02 15:04:05"; show as-is.
     return s;

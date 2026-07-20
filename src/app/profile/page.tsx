@@ -32,6 +32,7 @@ import {
 import { accountApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { useLocale } from '@/i18n/provider';
+import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
 
 interface Transaction {
   id: number;
@@ -301,7 +302,7 @@ export default function ProfilePage() {
                 <span className="text-xs text-[#8892b0]">Balance</span>
               </div>
               <p className="text-xl font-bold text-[#f5a623]">
-                {assets?.balance?.toLocaleString() ?? '0.00'} <span className="text-xs font-normal text-[#8892b0]">{assets?.currency ?? 'USD'}</span>
+                {fmtMoney(assets?.balance ?? 0, assets?.currency ?? 'USD')}
               </p>
             </div>
           </div>
@@ -468,7 +469,7 @@ export default function ProfilePage() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className={`text-xs font-semibold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-                          {isPositive ? '+' : '-'}{tx.amount?.toLocaleString()} {tx.currency || 'USD'}
+                          {isPositive ? '+' : '-'}{fmtMoney(tx.amount, tx.currency || 'USD')}
                         </p>
                         <p className="text-[10px] text-[#8892b0] mt-0.5">
                           {tx.created_at ? new Date(tx.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}

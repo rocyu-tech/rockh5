@@ -14,6 +14,7 @@ const REFRESH_TOKEN_KEY = "rockgame_refresh_token";
 export const api = axios.create({
   baseURL: "/api/v1",
   timeout: 15000,
+  withCredentials: true, // P0-6: send httpOnly cookies (set by /auth/login) on every request
   headers: {
     "Content-Type": "application/json",
   },
@@ -149,6 +150,14 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
         }
         processQueue(null, newToken);
+        // P0-7: notify active WebSocket clients to refresh their token.
+        // Browsers can't set Authorization headers on WS upgrade, so the WS
+        // client holds a stale token after access_token rotation. This event
+        // lets GameWSClient instances re-connect with the fresh token before
+        // the old one expires (15min TTL) — preventing mid-hand disconnects.
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:token-refreshed', { detail: { token: newToken } }));
+        }
         return api(originalRequest);
       }
 

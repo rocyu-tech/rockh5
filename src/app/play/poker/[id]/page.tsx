@@ -5,6 +5,7 @@ import { ArrowLeft, Coins, Loader2 } from 'lucide-react';
 import { GameWSClient, getAuthToken } from '@/lib/ws';
 import { useAuthStore } from '@/store/auth';
 import { useRouter } from 'next/navigation';
+import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -120,14 +121,14 @@ export default function PokerPage({ params }: { params: Promise<{ id: string }> 
       if (d.winners && d.winners.length > 0) {
         const me = d.winners.find((w) => w.user_id === myUserId);
         if (me) {
-          setError(`🏆 You win ${(me.amount / 100).toFixed(2)}! ${me.hand_rank ? `(${me.hand_rank})` : ''}`);
+          setError(`🏆 You win ${fmtMoneyPlain(me.amount)}! ${me.hand_rank ? `(${me.hand_rank})` : ''}`);
         } else {
           const w0 = d.winners[0];
-          setError(`🏆 Player ${w0.user_id} wins ${(w0.amount / 100).toFixed(2)}! ${w0.hand_rank ? `(${w0.hand_rank})` : ''}`);
+          setError(`🏆 Player ${w0.user_id} wins ${fmtMoneyPlain(w0.amount)}! ${w0.hand_rank ? `(${w0.hand_rank})` : ''}`);
         }
       } else if (d.winner > 0) {
         const isMe = d.winner === myUserId;
-        setError(`🏆 ${isMe ? 'You' : `Player ${d.winner}`} win${isMe ? '' : 's'} ${(d.win_amount / 100).toFixed(2)}! ${d.hand_rank || ''}`);
+        setError(`🏆 ${isMe ? 'You' : `Player ${d.winner}`} win${isMe ? '' : 's'} ${fmtMoneyPlain(d.win_amount)}! ${d.hand_rank || ''}`);
       }
       fetchAssets();
       // Clear hand after showdown
@@ -187,6 +188,32 @@ export default function PokerPage({ params }: { params: Promise<{ id: string }> 
   // Use the user id from the Zustand auth store instead.
   const isMyTurn = !!myUserId && gameState?.current_turn === myUserId;
 
+  // P0-11: turn countdown timer.
+  // Backend enforces a 30s turn limit per player (game_texas.go:160) and
+  // auto-folds on expiry. Without a visible countdown, players were being
+  // auto-folded without warning — perceived as unfair. Now we tick a
+  // 30s timer whenever `isMyTurn` becomes true, and visually warn at 5s.
+  const TURN_TIME_SECONDS = 30;
+  const [turnSecondsLeft, setTurnSecondsLeft] = useState<number>(TURN_TIME_SECONDS);
+  useEffect(() => {
+    if (!isMyTurn) {
+      setTurnSecondsLeft(TURN_TIME_SECONDS);
+      return;
+    }
+    setTurnSecondsLeft(TURN_TIME_SECONDS);
+    const startTs = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = (Date.now() - startTs) / 1000;
+      const left = Math.max(0, TURN_TIME_SECONDS - elapsed);
+      setTurnSecondsLeft(left);
+      if (left <= 0) clearInterval(interval);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [isMyTurn, gameState?.current_turn]);
+
+  const turnPercent = (turnSecondsLeft / TURN_TIME_SECONDS) * 100;
+  const turnCritical = turnSecondsLeft <= 5;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-950 via-green-900 to-emerald-950 text-white">
       <div className="flex items-center justify-between p-4">
@@ -195,7 +222,7 @@ export default function PokerPage({ params }: { params: Promise<{ id: string }> 
         </button>
         <div className="flex items-center gap-2 bg-black/30 px-4 py-2 rounded-full">
           <Coins className="w-4 h-4 text-yellow-400" />
-          <span className="font-bold">{((assets?.balance || 0) / 100).toFixed(2)}</span>
+          <span className="font-bold">{fmtMoneyPlain(assets?.balance ?? 0)}</span>
         </div>
       </div>
 
@@ -210,7 +237,7 @@ export default function PokerPage({ params }: { params: Promise<{ id: string }> 
         {gameState && (
           <div className="mb-6">
             <div className="text-sm text-white/60 mb-2 text-center">
-              Phase: {gameState.phase} | Pot: {(gameState.pot / 100).toFixed(2)}
+              Phase: {gameState.phase} | Pot: {fmtMoneyPlain(gameState.pot)}
             </div>
             <div className="flex gap-2 justify-center">
               {[0, 1, 2, 3, 4].map((i) => (
@@ -244,17 +271,54 @@ export default function PokerPage({ params }: { params: Promise<{ id: string }> 
         {error && <div className="text-sm text-yellow-400 mb-4 text-center max-w-xs">{error}</div>}
         {acting && <Loader2 className="w-5 h-5 animate-spin mb-4" />}
 
+        {/* P0-11: Turn countdown timer */}
+        {isMyTurn && (
+          <div className="mb-4 w-full max-w-xs">
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-[#8892b0]">Your turn</span>
+              <span className={`font-bold ${turnCritical ? 'text-red-400 animate-pulse' : 'text-yellow-400'}`}>
+                {Math.ceil(turnSecondsLeft)}s
+              </span>
+            </div>
+            <div className="h-2 bg-black/30 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all duration-100 ease-linear ${
+                  turnCritical ? 'bg-red-500' : 'bg-yellow-400'
+                }`}
+                style={{ width: `${turnPercent}%` }}
+              />
+            </div>
+            {turnCritical && (
+              <p className="text-[10px] text-red-400 text-center mt-1 animate-pulse">
+                Auto-fold in {Math.ceil(turnSecondsLeft)}s!
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Actions */}
         {matched && gameState && (
           <div className="flex flex-col items-center gap-3">
-            {/* Raise amount input */}
+            {/* Raise amount input — P1-17: bumped to 44px touch target */}
             <div className="flex items-center gap-2">
-              <button onClick={() => setRaiseAmount(Math.max(0, raiseAmount - 100))} className="w-8 h-8 rounded bg-white/10 font-bold">-</button>
+              <button
+                onClick={() => setRaiseAmount(Math.max(0, raiseAmount - 100))}
+                aria-label="Decrease raise amount"
+                className="w-11 h-11 rounded bg-white/10 font-bold flex items-center justify-center"
+              >
+                -
+              </button>
               <div className="text-center w-20">
                 <div className="text-xs text-white/60">Raise</div>
-                <div className="font-bold">{(raiseAmount / 100).toFixed(2)}</div>
+                <div className="font-bold">{fmtMoneyPlain(raiseAmount)}</div>
               </div>
-              <button onClick={() => setRaiseAmount(raiseAmount + 100)} className="w-8 h-8 rounded bg-white/10 font-bold">+</button>
+              <button
+                onClick={() => setRaiseAmount(raiseAmount + 100)}
+                aria-label="Increase raise amount"
+                className="w-11 h-11 rounded bg-white/10 font-bold flex items-center justify-center"
+              >
+                +
+              </button>
             </div>
 
             {/* Action buttons */}

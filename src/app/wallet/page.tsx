@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
 import { shopApi } from '@/lib/api';
@@ -263,6 +263,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
 
 // === Withdraw Tab Component ===
 function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
+  const router = useRouter();
   const { assets, fetchAssets } = useAuthStore();
 
   const [channels, setChannels] = useState<WithdrawChannel[]>([]);
@@ -375,7 +376,7 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
             Your withdrawal is being processed. Check transaction history for updates.
           </p>
           <button
-            onClick={() => { setOrderNo(''); window.location.href = '/profile'; }}
+            onClick={() => { setOrderNo(''); router.push('/profile'); }}
             className="px-5 py-2.5 bg-gradient-to-r from-[#f5a623] to-[#e8a910] text-[#0a0a1a] font-semibold rounded-lg text-sm active:scale-95 transition-transform"
           >
             View Transaction History
@@ -557,6 +558,7 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
 // an inner component that actually calls useSearchParams() silences the
 // "missing-suspense-with-csr-bailout" prerender error.
 import { Suspense } from 'react';
+import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
 
 function WalletPageInner() {
   const { isLoggedIn, assets, fetchAssets } = useAuthStore();
@@ -601,7 +603,7 @@ function WalletPageInner() {
             <div>
               <p className="text-xs text-[#8892b0]">Available Balance</p>
               <p className="text-2xl font-bold text-[#f5a623]">
-                {(assets?.balance ?? 0).toLocaleString()}
+                {fmtMoneyPlain(assets?.balance ?? 0)}
                 <span className="text-sm font-normal text-[#8892b0] ml-1">{assets?.currency ?? 'USD'}</span>
               </p>
             </div>

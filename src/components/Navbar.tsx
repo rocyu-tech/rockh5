@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
 import { Wallet, LogIn, UserPlus, User, LogOut, Gamepad2, Bell } from 'lucide-react';
+import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
 
 interface NavbarProps {
   onLoginClick: () => void;
@@ -11,6 +13,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
+  const router = useRouter();
   const { isLoggedIn, user, assets, logout } = useAuthStore();
   const [scrolled, setScrolled] = useState(false);
 
@@ -44,28 +47,30 @@ export default function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
           {isLoggedIn ? (
             <>
               {/* Balance */}
-              <button onClick={() => { if (typeof window !== 'undefined') window.location.href = '/wallet'; }} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#16213e] border border-[#f5a623]/20 active:bg-[#16213e]/80">
+              <button
+                onClick={() => router.push('/wallet')}
+                aria-label="View wallet"
+                className="flex items-center gap-1.5 px-2.5 py-1 min-h-[36px] rounded-lg bg-[#16213e] border border-[#f5a623]/20 active:bg-[#16213e]/80"
+              >
                 <Wallet className="w-3.5 h-3.5 text-[#f5a623]" />
                 <span className="text-xs font-semibold text-[#f5a623]">
-                  {assets?.balance?.toLocaleString() ?? '0.00'}
+                  {fmtMoneyPlain(assets?.balance ?? 0)}
                 </span>
               </button>
 
               {/* Notification bell placeholder */}
-              <button className="w-8 h-8 rounded-full bg-[#16213e]/60 flex items-center justify-center active:bg-[#16213e]">
+              <button
+                aria-label="Notifications"
+                className="w-11 h-11 rounded-full bg-[#16213e]/60 flex items-center justify-center active:bg-[#16213e]"
+              >
                 <Bell className="w-4 h-4 text-[#8892b0]" />
               </button>
 
               {/* User avatar */}
               <button
-                onClick={() => {
-                  // Navigate to profile page - using router is tricky here,
-                  // so dispatch event for page.tsx to handle, or use a callback
-                  if (typeof window !== 'undefined') {
-                    window.location.href = '/profile';
-                  }
-                }}
-                className="w-8 h-8 rounded-full bg-gradient-to-br from-[#f5a623] to-[#e94560] flex items-center justify-center active:scale-95 transition-transform"
+                onClick={() => router.push('/profile')}
+                aria-label="View profile"
+                className="w-11 h-11 rounded-full bg-gradient-to-br from-[#f5a623] to-[#e94560] flex items-center justify-center active:scale-95 transition-transform"
               >
                 <User className="w-4 h-4 text-white" />
               </button>

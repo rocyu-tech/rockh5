@@ -76,7 +76,10 @@ export default function AppProvider({ children }: { children: React.ReactNode })
 
   return (
     <ApiStatusContext.Provider value={apiStatus}>
-      <div className={`min-h-screen flex flex-col bg-[#0a0a1a] ${isGameRoute ? '' : 'pb-14'} ${apiStatus.isOffline ? 'pt-10' : ''}`}>
+      <div
+        className={`min-h-screen flex flex-col bg-[#0a0a1a] ${isGameRoute ? '' : 'pb-[calc(3.5rem+env(safe-area-inset-bottom))]'} ${apiStatus.isOffline ? 'pt-10' : ''}`}
+        style={{ paddingTop: isGameRoute ? 'env(safe-area-inset-top)' : undefined }}
+      >
         {/* Background decoration */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-[#f5a623]/3 blur-[100px]" />

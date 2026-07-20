@@ -5,6 +5,7 @@ import { ArrowLeft, Coins, Loader2 } from 'lucide-react';
 import { GameWSClient, getAuthToken } from '@/lib/ws';
 import { useAuthStore } from '@/store/auth';
 import { useRouter } from 'next/navigation';
+import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -96,7 +97,7 @@ export default function DragonTigerPage() {
         </button>
         <div className="flex items-center gap-2 bg-black/30 px-4 py-2 rounded-full">
           <Coins className="w-4 h-4 text-yellow-400" />
-          <span className="font-bold">{((assets?.balance || 0) / 100).toFixed(2)}</span>
+          <span className="font-bold">{fmtMoneyPlain(assets?.balance ?? 0)}</span>
         </div>
       </div>
 
@@ -126,7 +127,7 @@ export default function DragonTigerPage() {
                 {result.winner === 'tie' ? `🤝 Tie!${result.suited_tie ? ' (Suited!)' : ''}` : `🏆 ${result.winner} wins!`}
               </div>
               {result.win_amount > 0 && (
-                <div className="text-2xl font-bold text-green-400 mt-2">+{(result.win_amount / 100).toFixed(2)}</div>
+                <div className="text-2xl font-bold text-green-400 mt-2">+{fmtMoneyPlain(result.win_amount)}</div>
               )}
             </div>
           </div>
@@ -136,12 +137,12 @@ export default function DragonTigerPage() {
         {betting && <Loader2 className="w-6 h-6 animate-spin mb-4" />}
 
         <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => setBet(Math.max(100, bet - 100))} className="w-10 h-10 rounded-full bg-white/10 font-bold">-</button>
+          <button onClick={() => setBet(Math.max(100, bet - 100))} aria-label="Decrease bet" className="w-11 h-11 rounded-full bg-white/10 font-bold flex items-center justify-center">-</button>
           <div className="text-center">
             <div className="text-xs text-white/60">BET</div>
-            <div className="text-lg font-bold">{(bet / 100).toFixed(2)}</div>
+            <div className="text-lg font-bold">{fmtMoneyPlain(bet)}</div>
           </div>
-          <button onClick={() => setBet(bet + 100)} className="w-10 h-10 rounded-full bg-white/10 font-bold">+</button>
+          <button onClick={() => setBet(bet + 100)} aria-label="Increase bet" className="w-11 h-11 rounded-full bg-white/10 font-bold flex items-center justify-center">+</button>
         </div>
 
         <div className="grid grid-cols-2 gap-3 w-full max-w-md">

@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/auth';
 import { accountApi } from '@/lib/api';
 import { User, Wallet, Mail, Calendar, Crown, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
 
 interface ProfileModalProps {
   open: boolean;
@@ -102,7 +103,7 @@ export default function ProfileModal({ open, onOpenChange }: ProfileModalProps) 
               <div className="flex-1">
                 <p className="text-xs text-[#8892b0]">Balance</p>
                 <p className="text-lg font-bold text-[#f5a623]">
-                  {assets?.balance?.toLocaleString() ?? '0.00'} <span className="text-sm font-normal text-[#8892b0]">{assets?.currency ?? 'USD'}</span>
+                  {fmtMoney(assets?.balance ?? 0, assets?.currency ?? 'USD')}
                 </p>
               </div>
             </div>

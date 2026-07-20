@@ -19,6 +19,7 @@ import { useAuthStore } from '@/store/auth';
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import { Progress } from '@/components/ui/progress';
+import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
 
 interface VIPLevel {
   level: number;
@@ -205,7 +206,7 @@ export default function VIPPage() {
                       <p className="text-xs text-[#8892b0] uppercase tracking-wider mb-1">{t('vip.dailySigninBonus')}</p>
                       <p className="flex items-center gap-1 text-lg font-bold text-[#f5a623]">
                         <Coins className="w-4 h-4" />
-                        {(dailyBonus / 100).toFixed(2)}
+                        {fmtMoneyPlain(dailyBonus)}
                       </p>
                     </div>
                     <button

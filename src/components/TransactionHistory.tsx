@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { shopApi } from '@/lib/api';
+import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
 import {
   TrendingUp,
   ArrowUpRight,
@@ -99,7 +100,7 @@ export default function TransactionHistory({ open, onOpenChange }: TransactionHi
   const formatAmount = (tx: Transaction) => {
     const isPositive = tx.type === 'recharge' || tx.type === 'bonus';
     const sign = isPositive ? '+' : '-';
-    return `${sign}${tx.amount.toLocaleString()} ${tx.currency || 'USD'}`;
+    return `${sign}${fmtMoney(tx.amount, tx.currency || 'USD')}`;
   };
 
   const formatDate = (dateStr: string) => {

@@ -1,11 +1,13 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import BannerCarousel from '@/components/BannerCarousel';
 import { useAuthStore } from '@/store/auth';
 import { Gamepad2, Users, Trophy, Shield, Wallet, Gift, Crown, RotateCw } from 'lucide-react';
 
 export default function Home() {
+  const router = useRouter();
   const { isLoggedIn } = useAuthStore();
 
   const handleSpinClick = () => {
@@ -21,7 +23,7 @@ export default function Home() {
       window.dispatchEvent(new CustomEvent('auth:logout'));
       return;
     }
-    window.location.href = path;
+    router.push(path);
   };
 
   return (
@@ -102,7 +104,7 @@ export default function Home() {
               Hot Games
             </h2>
             <button
-              onClick={() => window.location.href = '/games'}
+              onClick={() => router.push('/games')}
               className="text-xs text-[#f5a623] font-medium active:opacity-70"
             >
               View All →
@@ -139,7 +141,7 @@ export default function Home() {
               Promotions
             </h2>
             <button
-              onClick={() => window.location.href = '/promotions'}
+              onClick={() => router.push('/promotions')}
               className="text-xs text-[#f5a623] font-medium active:opacity-70"
             >
               View All →
