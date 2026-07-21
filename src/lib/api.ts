@@ -61,16 +61,21 @@ function processQueue(error: unknown, token: string | null = null) {
 // modal never appeared and the user was stuck in a "looks-logged-in but every
 // request fails" limbo state.
 //
-// Fix: call useAuthStore.getState().logout() BEFORE dispatching the event.
-// This synchronously clears isLoggedIn, so AppProvider's check passes and
+// Fix: synchronously clear zustand state (no async logout API call) so
+// isLoggedIn=false BEFORE the event fires. AppProvider's guard passes and
 // the login modal opens correctly.
 function forceLogout() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
-  // Synchronize zustand auth state (clears isLoggedIn, user, assets, etc.)
-  useAuthStore.getState().logout();
-  // Now dispatch the event — AppProvider will see isLoggedIn=false and
-  // correctly open the login modal.
+  // Synchronously clear zustand auth state (no API call, no await)
+  useAuthStore.setState({
+    token: null,
+    refreshToken: null,
+    user: null,
+    assets: null,
+    isLoggedIn: false,
+    lastError: null,
+  });
   window.dispatchEvent(new CustomEvent("auth:logout"));
 }
 
