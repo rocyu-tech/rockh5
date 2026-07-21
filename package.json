@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 8890",
-    "build": "next build",
+    "build": "NODE_OPTIONS=--max-old-space-size=1024 next build --no-lint",
     "start": "next start -p 8890",
     "lint": "next lint",
     "type-check": "tsc --noEmit"
