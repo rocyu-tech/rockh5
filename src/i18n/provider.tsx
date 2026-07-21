@@ -24,9 +24,9 @@ import {
 import en from './messages/en.json';
 import zh from './messages/zh.json';
 
-const messages: Record<Locale, Record<string, string>> = {
-  en: en as Record<string, string>,
-  zh: zh as Record<string, string>,
+const messages: Record<Locale, Record<string, unknown>> = {
+  en: en as Record<string, unknown>,
+  zh: zh as Record<string, unknown>,
 };
 
 interface I18nContextValue {
