@@ -48,11 +48,6 @@ export default function RegisterModal({ open, onOpenChange, switchToLogin }: Reg
       return;
     }
 
-    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
-      setError('Password must contain both letters and numbers');
-      return;
-    }
-
     if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
       setError('Password must contain at least one letter and one digit');
       return;
@@ -134,7 +129,7 @@ export default function RegisterModal({ open, onOpenChange, switchToLogin }: Reg
               <Input
                 id="reg-password"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Min 6 characters"
+                placeholder="Min 8 characters, letter + digit"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-10 pr-10 bg-[#16213e] border-[#f5a623]/20 placeholder-[#8892b0]/50 focus:border-[#f5a623]/50"

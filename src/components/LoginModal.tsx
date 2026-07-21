@@ -36,6 +36,16 @@ export default function LoginModal({ open, onOpenChange, switchToRegister }: Log
       return;
     }
 
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      setError('Password must contain both letters and numbers');
+      return;
+    }
+
     const success = await login(email, password);
     if (success) {
       onOpenChange(false);
