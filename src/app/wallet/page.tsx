@@ -13,6 +13,15 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+const isValidUrl = (url: string): boolean => {
+  try {
+    const u = new URL(url);
+    return ['http:', 'https:'].includes(u.protocol);
+  } catch {
+    return false;
+  }
+};
+
 // === Shared types ===
 interface Channel {
   id: number;
@@ -124,7 +133,13 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
           <p className="text-sm text-[#8892b0] mb-4">Redirecting to payment page...</p>
           <div className="flex gap-3 justify-center">
             <button
-              onClick={() => window.open(payUrl, '_blank')}
+              onClick={() => {
+                if (isValidUrl(payUrl)) {
+                  window.open(payUrl, '_blank');
+                } else {
+                  toast.error('Invalid payment URL');
+                }
+              }}
               className="px-5 py-2.5 bg-gradient-to-r from-[#f5a623] to-[#e8a910] text-[#0a0a1a] font-semibold rounded-lg text-sm flex items-center gap-2 active:scale-95 transition-transform"
             >
               <ExternalLink className="w-4 h-4" />

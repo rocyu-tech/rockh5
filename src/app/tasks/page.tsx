@@ -7,6 +7,15 @@ import { Button } from '@/components/ui/button';
 import { taskApi, TaskTypeState, TaskItem } from '@/lib/api';
 import { toast } from 'sonner';
 
+const isValidUrl = (url: string): boolean => {
+  try {
+    const u = new URL(url);
+    return ['http:', 'https:'].includes(u.protocol);
+  } catch {
+    return false;
+  }
+};
+
 const TASK_TYPE_TABS = [
   { key: 0, label: 'Daily Tasks', icon: Clock },
   { key: 1, label: 'Weekly Tasks', icon: Trophy },
@@ -191,7 +200,13 @@ export default function TasksPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => window.open(task.link_url, '_blank')}
+                          onClick={() => {
+                            if (isValidUrl(task.link_url)) {
+                              window.open(task.link_url, '_blank');
+                            } else {
+                              toast.error('Invalid link URL');
+                            }
+                          }}
                           className="text-xs h-7 px-3 border-[#f5a623] text-[#f5a623] hover:bg-[#f5a623]/10"
                         >
                           Go

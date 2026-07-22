@@ -443,7 +443,7 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {transactions.map((tx: any) => {
+                {transactions.map((tx: Transaction) => {
                   const isPositive = tx.type === 'recharge' || tx.type === 'bonus';
                   const statusStyle = STATUS_STYLES[tx.status] || STATUS_STYLES.pending;
                   return (
