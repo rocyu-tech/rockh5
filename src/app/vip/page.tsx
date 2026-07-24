@@ -75,8 +75,8 @@ export default function VIPPage() {
       try {
         // Fetch levels in the current UI language; backend supports en/zh/vi/th.
         const levelsRes = await vipApi.getLevels(locale);
-        if (!cancelled && levelsRes.data?.data?.length) {
-          setLevels(levelsRes.data.data);
+        if (!cancelled && levelsRes.data?.length) {
+          setLevels(levelsRes.data);
         }
         if (isLoggedIn) {
           const [infoRes, stateRes] = await Promise.all([
@@ -84,9 +84,9 @@ export default function VIPPage() {
             activityApi.getCheckInState(),
           ]);
           if (!cancelled) {
-            if (infoRes.data?.data) setInfo(infoRes.data.data);
+            if (infoRes.data) setInfo(infoRes.data);
             // Backend returns `checked_today`; older docs mention `checked_in` — accept both.
-            const sd = stateRes.data?.data as { checked_today?: boolean; checked_in?: boolean } | undefined;
+            const sd = stateRes.data as { checked_today?: boolean; checked_in?: boolean } | undefined;
             if (sd) setCheckedIn(!!(sd.checked_today ?? sd.checked_in));
           }
         }
