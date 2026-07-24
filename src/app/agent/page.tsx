@@ -25,10 +25,10 @@ export default function AgentPage() {
         agentApi.getSubordinates(1, 20),
         agentApi.getCommissionRecords(1, 20),
       ]);
-      if (infoRes.data?.code === 0) setAgentInfo(infoRes.data.data);
-      if (summaryRes.data?.code === 0) setCommissionSummary(summaryRes.data.data);
-      if (subsRes.data?.code === 0) setSubordinates(subsRes.data.data.list || []);
-      if (recordsRes.data?.code === 0) setRecords(recordsRes.data.data.list || []);
+      setAgentInfo(infoRes.data);
+      setCommissionSummary(summaryRes.data);
+      setSubordinates(subsRes.data?.list || []);
+      setRecords(recordsRes.data?.list || []);
     } catch {
       toast.error('Failed to load agent data');
     } finally {
@@ -46,13 +46,8 @@ export default function AgentPage() {
     setGeneratingLink(true);
     try {
       const res = await agentApi.getPromoLink();
-      if (res.data?.code === 0) {
-        const link = res.data.data.referral_link;
-        setAgentInfo(prev => prev ? { ...prev, referral_link: link, referral_code: res.data.data.referral_code } : prev);
-        toast.success('Promo link generated!');
-      } else {
-        toast.error(res.data?.message || 'Failed to generate link');
-      }
+      setAgentInfo(prev => prev ? { ...prev, referral_link: res.data.referral_link, referral_code: res.data.referral_code } : prev);
+      toast.success('Promo link generated!');
     } catch {
       toast.error('Failed to generate link');
     } finally {
@@ -70,13 +65,9 @@ export default function AgentPage() {
   const handleSettlement = async () => {
     setSettling(true);
     try {
-      const res = await agentApi.requestSettlement();
-      if (res.data?.code === 0) {
-        toast.success('Settlement requested!');
-        await fetchData();
-      } else {
-        toast.error(res.data?.message || 'Settlement failed');
-      }
+      await agentApi.requestSettlement();
+      toast.success('Settlement requested!');
+      await fetchData();
     } catch {
       toast.error('Settlement failed');
     } finally {

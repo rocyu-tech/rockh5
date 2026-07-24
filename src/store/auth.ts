@@ -47,7 +47,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       const res = await authApi.login(email, password);
-      const data = res.data.data;
+      const data = res.data;
       localStorage.setItem(TOKEN_KEY, data.access_token);
       localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
       set({
@@ -69,7 +69,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, lastError: null });
     try {
       const res = await authApi.register(data);
-      const tokenData = res.data.data;
+      const tokenData = res.data;
       if (tokenData?.access_token) {
         localStorage.setItem(TOKEN_KEY, tokenData.access_token);
         localStorage.setItem(REFRESH_TOKEN_KEY, tokenData.refresh_token);
@@ -114,7 +114,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   fetchProfile: async () => {
     try {
       const res = await accountApi.getProfile();
-      set({ user: res.data.data });
+      set({ user: res.data });
     } catch (err) {
       // Auth errors (401) are handled by the axios interceptor.
       // Log non-auth errors for debugging.
@@ -128,7 +128,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   fetchAssets: async () => {
     try {
       const res = await accountApi.getAssets();
-      set({ assets: res.data.data });
+      set({ assets: res.data });
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status && status !== 401 && status !== 403) {
@@ -140,9 +140,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   fetchUnreadMailCount: async () => {
     try {
       const res = await mailApi.getUnreadCount();
-      if (res.data?.code === 0) {
-        set({ unreadMailCount: res.data.data.unread_count });
-      }
+      set({ unreadMailCount: res.data?.unread_count || 0 });
     } catch {
       // Silently fail
     }

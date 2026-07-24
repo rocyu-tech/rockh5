@@ -32,12 +32,8 @@ export default function RankingPage() {
         rankApi.getRankList(rankType, period),
         rankApi.getMyRank(rankType),
       ]);
-      if (listRes.data?.code === 0) {
-        setRankList(listRes.data.data.rank_list || []);
-      }
-      if (myRes.data?.code === 0) {
-        setMyRank(myRes.data.data.my_rank || null);
-      }
+      setRankList(listRes.data?.rank_list || []);
+      setMyRank(myRes.data?.my_rank || null);
     } catch {
       toast.error('Failed to load rankings');
     } finally {

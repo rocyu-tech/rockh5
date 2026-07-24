@@ -21,8 +21,8 @@ export default function BannerCarousel() {
   const fetchBanners = useCallback(() => {
     setLoadError(false);
     lobbyApi.getBanners().then((res) => {
-      if (res.data?.data?.length) {
-        setBanners(res.data.data);
+      if (res.data?.length) {
+        setBanners(res.data);
       }
     }).catch((err) => {
       // BG-7 FIX: show error state instead of fallback placeholder banners

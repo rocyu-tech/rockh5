@@ -143,8 +143,8 @@ api.interceptors.response.use(
         refresh_token: refreshToken,
       });
 
-      const newToken = res.data?.data?.access_token;
-      const newRefreshToken = res.data?.data?.refresh_token;
+      const newToken = res.data?.access_token;
+      const newRefreshToken = res.data?.refresh_token;
 
       if (newToken) {
         localStorage.setItem(TOKEN_KEY, newToken);
@@ -182,11 +182,6 @@ api.interceptors.response.use(
 );
 
 // === Types ===
-export interface ApiResponse<T = unknown> {
-  code: number;
-  message: string;
-  data: T;
-}
 
 export interface Banner {
   id: number;
@@ -284,15 +279,15 @@ export interface Activity {
 // Auth
 export const authApi = {
   login: (email: string, password: string) =>
-    api.post<ApiResponse<{ access_token: string; refresh_token: string }>>("/auth/login", { email, password }),
+    api.post<{ access_token: string; refresh_token: string }>("/auth/login", { email, password }),
 
   register: (data: { email: string; password: string; confirm_password: string; phone?: string }) =>
-    api.post<ApiResponse<{ access_token: string; refresh_token: string }>>("/auth/register", data),
+    api.post<{ access_token: string; refresh_token: string }>("/auth/register", data),
 
   refresh: (refreshToken: string) =>
-    api.post<ApiResponse<{ access_token: string; refresh_token: string }>>("/auth/refresh", { refresh_token: refreshToken }),
+    api.post<{ access_token: string; refresh_token: string }>("/auth/refresh", { refresh_token: refreshToken }),
 
-  logout: () => api.post<ApiResponse<{ result: string }>>("/auth/logout"),
+  logout: () => api.post<{ result: string }>("/auth/logout"),
 
   // P1: password reset — 2-step flow.
   //   1. requestPasswordReset(email) → backend generates a 64-char hex token,
@@ -301,9 +296,9 @@ export const authApi = {
   //   2. confirmPasswordReset(token, new_password) → validates token, sets
   //      new password, deletes token, force-logs-out all existing sessions.
   requestPasswordReset: (email: string) =>
-    api.post<ApiResponse<{ message: string }>>("/auth/password-reset/request", { email }, { _noAuth: true } as object),
+    api.post<{ message: string }>("/auth/password-reset/request", { email }, { _noAuth: true } as object),
   confirmPasswordReset: (token: string, newPassword: string) =>
-    api.post<ApiResponse<{ message: string }>>("/auth/password-reset/confirm", { token, new_password: newPassword }, { _noAuth: true } as object),
+    api.post<{ message: string }>("/auth/password-reset/confirm", { token, new_password: newPassword }, { _noAuth: true } as object),
 };
 
 // VIP — P1
@@ -312,21 +307,21 @@ export const vipApi = {
   // The VIPLevel interface (above) is the canonical shape used by existing
   // components; we keep the response typed as VIPLevel[] for compatibility.
   getLevels: (lang?: string) =>
-    api.get<ApiResponse<VIPLevel[]>>("/vip/levels", { params: lang ? { lang } : undefined }),
+    api.get<VIPLevel[]>("/vip/levels", { params: lang ? { lang } : undefined }),
   getInfo: () =>
-    api.get<ApiResponse<{
+    api.get<{
       level: number;
       growth: number;
       progress: number;
       next_level?: { level: number; name: string; growth_required: number } | Record<string, never>;
-    }>>("/vip/info"),
-  upgrade: () => api.post<ApiResponse<{ current_level: number; upgraded: boolean; old_level: number; new_level: number }>>("/vip/upgrade", {}),
+    }>("/vip/info"),
+  upgrade: () => api.post<{ current_level: number; upgraded: boolean; old_level: number; new_level: number }>("/vip/upgrade", {}),
 };
 
 // Game history — P1
 export const historyApi = {
   list: (params: { type?: 'all' | 'slot' | 'poker' | 'baccarat' | 'dragon'; page?: number; page_size?: number } = {}) =>
-    api.get<ApiResponse<{
+    api.get<{
       list: Array<{
         id: number;
         game_type: 'slot' | 'poker' | 'baccarat' | 'dragon';
@@ -349,46 +344,46 @@ export const historyApi = {
       page: number;
       page_size: number;
       has_more: boolean;
-    }>>("/game/manage/history", { params }),
+    }>("/game/manage/history", { params }),
 };
 
 
 // Lobby
 export const lobbyApi = {
-  getBanners: () => api.get<ApiResponse<Banner[]>>("/lobby/banners"),
-  getCategories: () => api.get<ApiResponse<Category[]>>("/lobby/categories"),
+  getBanners: () => api.get<Banner[]>("/lobby/banners"),
+  getCategories: () => api.get<Category[]>("/lobby/categories"),
   getGames: (params?: { category_id?: number; vendor_id?: number; keyword?: string; page?: number; page_size?: number }) =>
-    api.get<ApiResponse<GameListResponse>>("/lobby/games", { params }),
-  getConfig: () => api.get<ApiResponse<Record<string, unknown>>>("/lobby/config"),
-  getSplash: () => api.get<ApiResponse<Record<string, unknown>>>("/lobby/splash"),
+    api.get<GameListResponse>("/lobby/games", { params }),
+  getConfig: () => api.get<Record<string, unknown>>("/lobby/config"),
+  getSplash: () => api.get<Record<string, unknown>>("/lobby/splash"),
 };
 
 // Game
 export const gameApi = {
-  launch: (id: number) => api.get<ApiResponse<{ game_url: string; launch_url: string; session_token: string; vendor: string; game_type?: string; game_id?: string; game_info_id?: number }>>(`/game/launch/${id}`),
-  getVendors: () => api.get<ApiResponse<GameVendor[]>>("/game/vendors"),
-  toggleFavorite: (gameId: number) => api.post<ApiResponse<{ is_favorite: boolean }>>("/game/manage/favorite", { game_id: gameId }),
-  getRecentGames: () => api.get<ApiResponse<Game[]>>("/game/manage/recent"),
+  launch: (id: number) => api.get<{ game_url: string; launch_url: string; session_token: string; vendor: string; game_type?: string; game_id?: string; game_info_id?: number }>(`/game/launch/${id}`),
+  getVendors: () => api.get<GameVendor[]>("/game/vendors"),
+  toggleFavorite: (gameId: number) => api.post<{ is_favorite: boolean }>("/game/manage/favorite", { game_id: gameId }),
+  getRecentGames: () => api.get<Game[]>("/game/manage/recent"),
   searchGames: (keyword: string, page?: number, pageSize?: number) =>
-    api.get<ApiResponse<{ list: Game[]; total: number }>>("/game/manage/search", { params: { keyword, page, page_size: pageSize } }),
-  endSession: (sessionId: string) => api.post<ApiResponse<{ result: string }>>("/game/manage/end-session", { session_id: sessionId }),
+    api.get<{ list: Game[]; total: number }>("/game/manage/search", { params: { keyword, page, page_size: pageSize } }),
+  endSession: (sessionId: string) => api.post<{ result: string }>("/game/manage/end-session", { session_id: sessionId }),
 };
 
 // Account
 export const accountApi = {
-  getProfile: () => api.get<ApiResponse<UserProfile>>("/account/profile"),
-  updateProfile: (data: Partial<UserProfile>) => api.put<ApiResponse<UserProfile>>("/account/profile", data),
-  getAssets: () => api.get<ApiResponse<UserAssets>>("/account/assets"),
+  getProfile: () => api.get<UserProfile>("/account/profile"),
+  updateProfile: (data: Partial<UserProfile>) => api.put<UserProfile>("/account/profile", data),
+  getAssets: () => api.get<UserAssets>("/account/assets"),
   changePassword: (data: { old_password: string; new_password: string }) =>
-    api.post<ApiResponse<{ result: string }>>("/account/change-password", data),
+    api.post<{ result: string }>("/account/change-password", data),
   uploadAvatar: (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    return api.post<ApiResponse<{ avatar_url: string }>>("/account/avatar", formData, {
+    return api.post<{ avatar_url: string }>("/account/avatar", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
   },
-  deleteAccount: () => api.post<ApiResponse<{ result: string }>>("/account/delete-account"),
+  deleteAccount: () => api.post<{ result: string }>("/account/delete-account"),
 };
 
 // VIP — original declaration was here; P1 replaced it with the typed
@@ -396,25 +391,25 @@ export const accountApi = {
 
 // Activity
 export const activityApi = {
-  getList: () => api.get<ApiResponse<Activity[]>>("/activity/list"),
+  getList: () => api.get<Activity[]>("/activity/list"),
 
   // Check-in
-  checkIn: () => api.post<ApiResponse<{ bonus_amount: number; consecutive_days: number }>>("/activity/check-in"),
-  getCheckInState: () => api.get<ApiResponse<{ checked_today: boolean; consecutive_days: number; history: Array<{ date: string; bonus: number }> }>>("/activity/check-in/state"),
-  getCheckInConfig: () => api.get<ApiResponse<{ daily_bonus: number; streak_bonuses: Record<number, number> }>>("/activity/check-in/config"),
+  checkIn: () => api.post<{ bonus_amount: number; consecutive_days: number }>("/activity/check-in"),
+  getCheckInState: () => api.get<{ checked_today: boolean; consecutive_days: number; history: Array<{ date: string; bonus: number }> }>("/activity/check-in/state"),
+  getCheckInConfig: () => api.get<{ daily_bonus: number; streak_bonuses: Record<number, number> }>("/activity/check-in/config"),
 
   // Recharge bonus
-  claimRechargeBonus: () => api.post<ApiResponse<{ bonus_amount: number }>>("/activity/recharge-bonus"),
+  claimRechargeBonus: () => api.post<{ bonus_amount: number }>("/activity/recharge-bonus"),
 
   // Timed gift
-  claimTimedGift: () => api.post<ApiResponse<{ item_id: number; item_name: string; quantity: number }>>("/activity/timed-gift"),
-  getTimedGiftStatus: () => api.get<ApiResponse<{ available: boolean; next_available_at: string; cooldown_hours: number }>>("/activity/timed-gift/status"),
+  claimTimedGift: () => api.post<{ item_id: number; item_name: string; quantity: number }>("/activity/timed-gift"),
+  getTimedGiftStatus: () => api.get<{ available: boolean; next_available_at: string; cooldown_hours: number }>("/activity/timed-gift/status"),
 };
 
 // Shop
 export const shopApi = {
   // Wallet balance
-  getWallet: () => api.get<ApiResponse<{
+  getWallet: () => api.get<{
     balance: number;
     bonus_balance: number;
     frozen_balance: number;
@@ -425,34 +420,34 @@ export const shopApi = {
     flow_required: number;
     flow_completed: number;
     currency: string;
-  }>>("/shop/wallet"),
+  }>("/shop/wallet"),
 
   // Payment channels (for deposit)
-  getPaymentChannels: () => api.get<ApiResponse<unknown[]>>("/shop/payment-channels"),
+  getPaymentChannels: () => api.get<unknown[]>("/shop/payment-channels"),
 
   // Withdraw channels
-  getWithdrawChannels: () => api.get<ApiResponse<unknown[]>>("/shop/withdraw-channels"),
+  getWithdrawChannels: () => api.get<unknown[]>("/shop/withdraw-channels"),
 
   // Create recharge (deposit) order
   recharge: (data: { channel_id: number; amount: number }) =>
-    api.post<ApiResponse<{ order_no: string; amount: number; status: string; pay_url?: string; pay_token?: string; qr_code?: string }>>("/shop/recharge", data),
+    api.post<{ order_no: string; amount: number; status: string; pay_url?: string; pay_token?: string; qr_code?: string }>("/shop/recharge", data),
 
   // Create withdraw order
   withdraw: (data: { channel_id: number; amount: number; account?: string; account_name?: string }) =>
-    api.post<ApiResponse<{ order_no: string; amount: number; fee: number; real_amount: number; status: string }>>("/shop/withdraw", data),
+    api.post<{ order_no: string; amount: number; fee: number; real_amount: number; status: string }>("/shop/withdraw", data),
 
   // Order history (type: "recharge" | "withdraw" | "all")
   getOrders: (params?: { type?: string; page?: number; page_size?: number }) =>
-    api.get<ApiResponse<unknown[]>>("/shop/orders", { params }),
+    api.get<unknown[]>("/shop/orders", { params }),
 
   // User payment accounts (for withdrawal)
-  getPaymentAccounts: () => api.get<ApiResponse<unknown[]>>("/shop/payment-accounts"),
+  getPaymentAccounts: () => api.get<unknown[]>("/shop/payment-accounts"),
   setPaymentAccount: (data: { id?: number; account_type: number; title: string; account: string; code?: string; username?: string }) =>
-    api.post<ApiResponse<{ id: number }>>("/shop/payment-accounts", data),
+    api.post<{ id: number }>("/shop/payment-accounts", data),
 
   // Withdraw password
   setWithdrawPassword: (data: { old_pwd?: string; new_pwd: string }) =>
-    api.post<ApiResponse<{ result: string }>>("/shop/withdraw-password", data),
+    api.post<{ result: string }>("/shop/withdraw-password", data),
 };
 
 export { TOKEN_KEY, REFRESH_TOKEN_KEY };
@@ -548,19 +543,19 @@ export interface SpinResult {
 }
 
 export const itemApi = {
-  getInventory: () => api.get<ApiResponse<InventoryItem[]>>("/item/inventory"),
-  getList: () => api.get<ApiResponse<ItemDefine[]>>("/item/list"),
+  getInventory: () => api.get<InventoryItem[]>("/item/inventory"),
+  getList: () => api.get<ItemDefine[]>("/item/list"),
   useItem: (data: { item_id: number; quantity?: number }) =>
-    api.post<ApiResponse<{ quantity: number }>>("/item/use", data),
+    api.post<{ quantity: number }>("/item/use", data),
   transfer: (data: { target_user_id: number; item_id: number; quantity: number }) =>
-    api.post<ApiResponse<{ result: string }>>("/item/transfer", data),
+    api.post<{ result: string }>("/item/transfer", data),
 };
 
 export const wheelApi = {
-  getConfig: () => api.get<ApiResponse<WheelConfig>>("/activity/spin-wheel/config"),
-  getState: () => api.get<ApiResponse<WheelState>>("/activity/spin-wheel/state"),
+  getConfig: () => api.get<WheelConfig>("/activity/spin-wheel/config"),
+  getState: () => api.get<WheelState>("/activity/spin-wheel/state"),
   spin: (useFree?: boolean) =>
-    api.post<ApiResponse<SpinResult>>("/activity/spin-wheel", useFree !== undefined ? { use_free: useFree } : {}),
+    api.post<SpinResult>("/activity/spin-wheel", useFree !== undefined ? { use_free: useFree } : {}),
 };
 
 // ─── Task ────────────────────────────────────────────────────────────────────
@@ -594,24 +589,24 @@ export interface TaskProgress {
 export const taskApi = {
   getTaskConfig: async () => {
     const [daily, weekly, growth] = await Promise.allSettled([
-      api.get<ApiResponse<TaskItem[]>>("/task/daily"),
-      api.get<ApiResponse<TaskItem[]>>("/task/weekly"),
-      api.get<ApiResponse<TaskItem[]>>("/task/growth"),
+      api.get<TaskItem[]>("/task/daily"),
+      api.get<TaskItem[]>("/task/weekly"),
+      api.get<TaskItem[]>("/task/growth"),
     ]);
-    const getList = (r: PromiseSettledResult<{ data: ApiResponse<TaskItem[]> }>): TaskItem[] =>
-      r.status === 'fulfilled' ? (r.value.data?.data || []) : [];
+    const getList = (r: PromiseSettledResult<{ data: TaskItem[] }>): TaskItem[] =>
+      r.status === 'fulfilled' ? (r.value.data || []) : [];
     const wrap = (list: TaskItem[], type: number): TaskTypeState => ({
       task_type: type,
       receive_all_btn: list.some(t => t.receive_status === 1) ? 1 : 0,
       task_type_state: list,
     });
-    return { data: { code: 0, data: [wrap(getList(daily), 0), wrap(getList(weekly), 1), wrap(getList(growth), 2)] } };
+    return { data: [wrap(getList(daily), 0), wrap(getList(weekly), 1), wrap(getList(growth), 2)] };
   },
-  getTaskProgress: () => api.get<ApiResponse<TaskProgress[]>>("/task/progress"),
+  getTaskProgress: () => api.get<TaskProgress[]>("/task/progress"),
   claimReward: (taskId: number) =>
-    api.post<ApiResponse<{ item_id: number; item_name: string; quantity: number }>>("/task/claim", { task_id: taskId }),
+    api.post<{ item_id: number; item_name: string; quantity: number }>("/task/claim", { task_id: taskId }),
   claimAllRewards: (taskType?: number) =>
-    api.post<ApiResponse<{ count: number; items: Array<{ item_id: number; item_name: string; quantity: number }> }>>("/task/claim", taskType !== undefined ? { task_type: taskType } : {}),
+    api.post<{ count: number; items: Array<{ item_id: number; item_name: string; quantity: number }> }>("/task/claim", taskType !== undefined ? { task_type: taskType } : {}),
 };
 
 // ─── Mail ────────────────────────────────────────────────────────────────────
@@ -643,15 +638,15 @@ export interface MailListResult {
 }
 
 export const mailApi = {
-  getMailbox: () => api.get<ApiResponse<MailListResult>>("/mail/inbox"),
+  getMailbox: () => api.get<MailListResult>("/mail/inbox"),
   readMail: (id: number) =>
-    api.post<ApiResponse<{ mail_id: number; title: string; content: string; attachment?: Array<{ item_id: number; item_name: string; quantity: number; icon: string }> }>>("/mail/read", { mail_id: id }),
+    api.post<{ mail_id: number; title: string; content: string; attachment?: Array<{ item_id: number; item_name: string; quantity: number; icon: string }> }>("/mail/read", { mail_id: id }),
   deleteMail: (ids: number[]) =>
-    api.post<ApiResponse<{ result: string }>>("/mail/delete", { mail_ids: ids }),
+    api.post<{ result: string }>("/mail/delete", { mail_ids: ids }),
   claimMailAttachment: (id: number) =>
-    api.post<ApiResponse<{ items: Array<{ item_id: number; item_name: string; quantity: number }> }>>("/mail/claim-attachment", { mail_id: id }),
+    api.post<{ items: Array<{ item_id: number; item_name: string; quantity: number }> }>("/mail/claim-attachment", { mail_id: id }),
   getUnreadCount: () =>
-    api.get<ApiResponse<{ unread_count: number }>>("/mail/unread-count"),
+    api.get<{ unread_count: number }>("/mail/unread-count"),
 };
 
 // ─── Rank ────────────────────────────────────────────────────────────────────
@@ -674,11 +669,11 @@ export interface RankListResult {
 
 export const rankApi = {
   getRankList: (rankType: string, period?: string, page?: number) =>
-    api.get<ApiResponse<RankListResult>>("/rank/list", { params: { rank_type: rankType, period, page } }),
+    api.get<RankListResult>("/rank/list", { params: { rank_type: rankType, period, page } }),
   getMyRank: (rankType: string) =>
-    api.get<ApiResponse<{ my_rank: RankItem }>>("/rank/my-rank", { params: { rank_type: rankType } }),
+    api.get<{ my_rank: RankItem }>("/rank/my-rank", { params: { rank_type: rankType } }),
   getTopPlayers: (rankType: string, limit?: number) =>
-    api.get<ApiResponse<RankItem[]>>("/rank/top", { params: { rank_type: rankType, limit } }),
+    api.get<RankItem[]>("/rank/top", { params: { rank_type: rankType, limit } }),
 };
 
 // ─── Agent ───────────────────────────────────────────────────────────────────
@@ -728,26 +723,24 @@ export interface CommissionSummary {
 }
 
 export const agentApi = {
-  getAgentInfo: () => api.get<ApiResponse<AgentInfo>>("/agent/info"),
+  getAgentInfo: () => api.get<AgentInfo>("/agent/info"),
   getSubordinates: (page?: number, pageSize?: number) =>
-    api.get<ApiResponse<{ total: number; list: SubordinateItem[] }>>("/agent/subordinates", { params: { page, page_size: pageSize } }),
+    api.get<{ total: number; list: SubordinateItem[] }>("/agent/subordinates", { params: { page, page_size: pageSize } }),
   getCommissionRecords: (page?: number, pageSize?: number) =>
-    api.get<ApiResponse<{ total: number; list: CommissionRecord[] }>>("/agent/commissions", { params: { page, page_size: pageSize } }),
-  getDashboard: () => api.get<ApiResponse<CommissionSummary>>("/agent/dashboard"),
-  requestSettlement: () => api.post<ApiResponse<{ result: string }>>("/agent/settlement"),
-  getPromoLink: () => api.post<ApiResponse<{ referral_code: string; referral_link: string }>>("/agent/promo-link"),
+    api.get<{ total: number; list: CommissionRecord[] }>("/agent/commissions", { params: { page, page_size: pageSize } }),
+  getDashboard: () => api.get<CommissionSummary>("/agent/dashboard"),
+  requestSettlement: () => api.post<{ result: string }>("/agent/settlement"),
+  getPromoLink: () => api.post<{ referral_code: string; referral_link: string }>("/agent/promo-link"),
 };
 
 // ─── Reddot ──────────────────────────────────────────────────────────────────
-export interface ReddotItem {
-  id: number;
-  key: string;
-  is_read: number;
-  created_at: string;
+export interface ReddotState {
+  categories: Record<string, number>;
+  total: number;
 }
 
 export const reddotApi = {
-  getReddots: () => api.get<ApiResponse<ReddotItem[]>>("/reddot/state"),
-  markAsRead: (reddotId: number) =>
-    api.post<ApiResponse<{ result: string }>>("/reddot/read", { id: reddotId }),
+  getReddots: () => api.get<ReddotState>("/lobby/reddot/state"),
+  markAsRead: (category: string) =>
+    api.post<{ status: string }>("/lobby/reddot/read", { category }),
 };

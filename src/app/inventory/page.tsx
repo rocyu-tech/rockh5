@@ -40,7 +40,7 @@ export default function InventoryPage() {
   const fetchInventory = useCallback(async () => {
     try {
       const res = await itemApi.getInventory();
-      const data = res.data?.data;
+      const data = res.data;
       if (Array.isArray(data)) {
         setItems(data);
       } else if (data && typeof data === 'object' && 'list' in data) {

@@ -31,9 +31,7 @@ export default function TasksPage() {
   const fetchTasks = useCallback(async () => {
     try {
       const res = await taskApi.getTaskConfig();
-      if (res.data?.code === 0) {
-        setTaskStates(res.data.data);
-      }
+      setTaskStates(res);
     } catch {
       toast.error('Failed to load tasks');
     } finally {
@@ -47,12 +45,8 @@ export default function TasksPage() {
     setClaimingId(taskId);
     try {
       const res = await taskApi.claimReward(taskId);
-      if (res.data?.code === 0) {
-        toast.success(`Received: ${res.data.data.item_name} x${res.data.data.quantity}`);
-        await fetchTasks();
-      } else {
-        toast.error(res.data?.message || 'Claim failed');
-      }
+      toast.success(`Received: ${res.data.item_name} x${res.data.quantity}`);
+      await fetchTasks();
     } catch {
       toast.error('Claim failed');
     } finally {
@@ -63,13 +57,8 @@ export default function TasksPage() {
   const handleClaimAll = async (taskType: number) => {
     try {
       const res = await taskApi.claimAllRewards(taskType);
-      if (res.data?.code === 0) {
-        const count = res.data.data.count;
-        toast.success(`Claimed ${count} rewards!`);
-        await fetchTasks();
-      } else {
-        toast.error(res.data?.message || 'Claim all failed');
-      }
+      toast.success(`Claimed ${res.data.count} rewards!`);
+      await fetchTasks();
     } catch {
       toast.error('Claim all failed');
     }

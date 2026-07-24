@@ -63,7 +63,7 @@ export default function TransactionHistory({ open, onOpenChange }: TransactionHi
       const params: Record<string, unknown> = { page: p, page_size: pageSize };
       if (f !== 'all') params.type = f;
       const res = await shopApi.getOrders(params as { page?: number; page_size?: number });
-      const data = res.data?.data;
+      const data = res.data;
       if (Array.isArray(data)) {
         setTransactions(data as Transaction[]);
         setTotalPages(Math.max(1, Math.ceil(data.length / pageSize)));

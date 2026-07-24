@@ -49,7 +49,7 @@ export default function GameCard({ game }: GameCardProps) {
     setLaunching(true);
     try {
       const res = await gameApi.launch(game.id);
-      const data = res.data?.data;
+      const data = res.data;
       const gameUrl = data?.launch_url || data?.game_url;
 
       // P0: self-developed games navigate to internal H5 page (e.g. /play/slot/xxx)
@@ -78,10 +78,8 @@ export default function GameCard({ game }: GameCardProps) {
     }
     try {
       const res = await gameApi.toggleFavorite(game.id);
-      if (res.data?.code === 0) {
-        setIsFavorite(res.data.data.is_favorite);
-        toast.success(res.data.data.is_favorite ? 'Added to favorites' : 'Removed from favorites');
-      }
+      setIsFavorite(res.data.is_favorite);
+      toast.success(res.data.is_favorite ? 'Added to favorites' : 'Removed from favorites');
     } catch {
       toast.error('Failed to update favorite');
     }

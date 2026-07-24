@@ -33,7 +33,7 @@ export default function GameGrid({ categoryId }: GameGridProps) {
       if (keyword) params.keyword = keyword;
 
       const res = await lobbyApi.getGames(params);
-      const data = res.data.data;
+      const data = res.data;
 
       if (data?.list?.length) {
         setGames(append ? (prev) => [...prev, ...data.list] : data.list);

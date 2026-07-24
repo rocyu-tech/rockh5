@@ -87,7 +87,7 @@ export default function HistoryPage() {
     setError(null);
     try {
       const res = await historyApi.list({ type: filterType, page: pageNum, page_size: 20 });
-      const data = res.data?.data;
+      const data = res.data;
       if (!data) throw new Error('No data');
       setItems(prev => append ? [...prev, ...data.list] : data.list);
       setHasMore(data.has_more);

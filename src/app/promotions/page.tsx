@@ -23,8 +23,8 @@ export default function PromotionsPage() {
         activityApi.getCheckInState().catch(() => null),
         activityApi.getTimedGiftStatus().catch(() => null),
       ]);
-      if (checkInRes?.data?.code === 0) setCheckInState(checkInRes.data.data);
-      if (giftRes?.data?.code === 0) setTimedGift(giftRes.data.data);
+      if (checkInRes) setCheckInState(checkInRes.data);
+      if (giftRes) setTimedGift(giftRes.data);
     } catch { /* ignore */ }
   }, [isLoggedIn]);
 
@@ -38,12 +38,8 @@ export default function PromotionsPage() {
     setCheckingIn(true);
     try {
       const res = await activityApi.checkIn();
-      if (res.data?.code === 0) {
-        toast.success(`Checked in! +${res.data.data.bonus_amount} bonus (${res.data.data.consecutive_days} day streak)`);
-        await fetchStates();
-      } else {
-        toast.error(res.data?.message || 'Check-in failed');
-      }
+      toast.success(`Checked in! +${res.data.bonus_amount} bonus (${res.data.consecutive_days} day streak)`);
+      await fetchStates();
     } catch {
       toast.error('Check-in failed');
     } finally {
@@ -59,12 +55,8 @@ export default function PromotionsPage() {
     setClaimingGift(true);
     try {
       const res = await activityApi.claimTimedGift();
-      if (res.data?.code === 0) {
-        toast.success(`Received: ${res.data.data.item_name} x${res.data.data.quantity}!`);
-        await fetchStates();
-      } else {
-        toast.error(res.data?.message || 'Claim failed');
-      }
+      toast.success(`Received: ${res.data.item_name} x${res.data.quantity}!`);
+      await fetchStates();
     } catch {
       toast.error('Claim failed');
     } finally {

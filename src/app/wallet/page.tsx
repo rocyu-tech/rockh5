@@ -65,7 +65,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
   useEffect(() => {
     setLoading(true);
     shopApi.getPaymentChannels().then((res) => {
-      const data = res.data?.data;
+      const data = res.data;
       if (Array.isArray(data)) {
         const list = data as Channel[];
         setChannels(list);
@@ -101,7 +101,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
     setSubmitting(true);
     try {
       const res = await shopApi.recharge({ channel_id: selectedChannel, amount: numAmount });
-      const data = res.data?.data;
+      const data = res.data;
       if (data?.pay_url) {
         setPayUrl(data.pay_url);
         setOrderNo(data.order_no || '');
@@ -294,7 +294,7 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
   useEffect(() => {
     setLoading(true);
     shopApi.getWithdrawChannels().then((res) => {
-      const data = res.data?.data;
+      const data = res.data;
       if (Array.isArray(data)) {
         const list = data as WithdrawChannel[];
         setChannels(list);
@@ -355,7 +355,7 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
         account: account.trim() || undefined,
         account_name: accountName.trim() || undefined,
       });
-      const data = res.data?.data;
+      const data = res.data;
       if (data?.order_no) {
         setOrderNo(data.order_no);
         setAmount('');
@@ -696,7 +696,7 @@ function SettingsTab() {
   useEffect(() => {
     setLoadingAccounts(true);
     shopApi.getPaymentAccounts().then((res) => {
-      const data = res.data?.data;
+      const data = res.data;
       if (Array.isArray(data)) setPaymentAccounts(data as typeof paymentAccounts);
     }).catch(() => {}).finally(() => setLoadingAccounts(false));
   }, []);
@@ -708,23 +708,19 @@ function SettingsTab() {
     }
     setSavingAccount(true);
     try {
-      const res = await shopApi.setPaymentAccount({
+      await shopApi.setPaymentAccount({
         account_type: parseInt(newAccountChannel) || 1,
         title: newAccountTitle || newAccountChannel,
         account: newAccountNumber,
       });
-      if (res.data?.code === 0) {
-        toast.success('Payment account added!');
-        setShowAddAccount(false);
-        setNewAccountChannel('');
-        setNewAccountNumber('');
-        setNewAccountTitle('');
-        // Refresh list
-        const listRes = await shopApi.getPaymentAccounts();
-        if (Array.isArray(listRes.data?.data)) setPaymentAccounts(listRes.data.data as typeof paymentAccounts);
-      } else {
-        toast.error(res.data?.message || 'Failed to add account');
-      }
+      toast.success('Payment account added!');
+      setShowAddAccount(false);
+      setNewAccountChannel('');
+      setNewAccountNumber('');
+      setNewAccountTitle('');
+      // Refresh list
+      const listRes = await shopApi.getPaymentAccounts();
+      if (Array.isArray(listRes.data)) setPaymentAccounts(listRes.data as typeof paymentAccounts);
     } catch {
       toast.error('Failed to add account');
     } finally {
@@ -743,19 +739,15 @@ function SettingsTab() {
     }
     setChangingPwd(true);
     try {
-      const res = await shopApi.setWithdrawPassword({
+      await shopApi.setWithdrawPassword({
         old_pwd: oldPwd,
         new_pwd: newPwd,
       });
-      if (res.data?.code === 0) {
-        toast.success('Withdraw password updated!');
-        setShowChangeWithdrawPwd(false);
-        setOldPwd('');
-        setNewPwd('');
-        setConfirmPwd('');
-      } else {
-        toast.error(res.data?.message || 'Failed to update password');
-      }
+      toast.success('Withdraw password updated!');
+      setShowChangeWithdrawPwd(false);
+      setOldPwd('');
+      setNewPwd('');
+      setConfirmPwd('');
     } catch {
       toast.error('Failed to update password');
     } finally {

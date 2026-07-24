@@ -94,7 +94,7 @@ export default function ProfilePage() {
       const params: Record<string, unknown> = { page: 1, page_size: 20 };
       if (filter !== 'all') params.type = filter;
       const res = await shopApi.getOrders(params as { page?: number; page_size?: number });
-      const data = res.data?.data;
+      const data = res.data;
       if (Array.isArray(data)) {
         setTransactions(data as Transaction[]);
       } else if (data && typeof data === 'object' && 'list' in data) {
@@ -128,12 +128,8 @@ export default function ProfilePage() {
     setUploadingAvatar(true);
     try {
       const res = await accountApi.uploadAvatar(file);
-      if (res.data?.code === 0) {
-        toast.success('Avatar updated!');
-        await fetchProfile();
-      } else {
-        toast.error(res.data?.message || 'Upload failed');
-      }
+      toast.success('Avatar updated!');
+      await fetchProfile();
     } catch {
       toast.error('Upload failed');
     } finally {
@@ -157,19 +153,15 @@ export default function ProfilePage() {
     }
     setChangingPassword(true);
     try {
-      const res = await accountApi.changePassword({
+      await accountApi.changePassword({
         old_password: oldPassword,
         new_password: newPassword,
       });
-      if (res.data?.code === 0) {
-        toast.success('Password changed successfully!');
-        setShowChangePassword(false);
-        setOldPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-      } else {
-        toast.error(res.data?.message || 'Change failed');
-      }
+      toast.success('Password changed successfully!');
+      setShowChangePassword(false);
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
     } catch {
       toast.error('Change failed');
     } finally {
@@ -180,17 +172,13 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     setSavingProfile(true);
     try {
-      const res = await accountApi.updateProfile({
+      await accountApi.updateProfile({
         nickname: editNickname || undefined,
         phone: editPhone || undefined,
       });
-      if (res.data?.code === 0) {
-        toast.success('Profile updated!');
-        setShowEditProfile(false);
-        await fetchProfile();
-      } else {
-        toast.error(res.data?.message || 'Update failed');
-      }
+      toast.success('Profile updated!');
+      setShowEditProfile(false);
+      await fetchProfile();
     } catch {
       toast.error('Update failed');
     } finally {
@@ -201,14 +189,10 @@ export default function ProfilePage() {
   const handleDeleteAccount = async () => {
     setDeleting(true);
     try {
-      const res = await accountApi.deleteAccount();
-      if (res.data?.code === 0) {
-        toast.success('Account deleted');
-        logout();
-        router.push('/');
-      } else {
-        toast.error(res.data?.message || 'Delete failed');
-      }
+      await accountApi.deleteAccount();
+      toast.success('Account deleted');
+      logout();
+      router.push('/');
     } catch {
       toast.error('Delete failed');
     } finally {

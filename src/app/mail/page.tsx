@@ -17,9 +17,7 @@ export default function MailPage() {
   const fetchMails = useCallback(async () => {
     try {
       const res = await mailApi.getMailbox();
-      if (res.data?.code === 0) {
-        setMails(res.data.data.list || []);
-      }
+      setMails(res.data?.list || []);
     } catch {
       toast.error('Failed to load mails');
     } finally {
@@ -48,13 +46,9 @@ export default function MailPage() {
   const handleClaimAttachment = async (mailId: number) => {
     setClaimingId(mailId);
     try {
-      const res = await mailApi.claimMailAttachment(mailId);
-      if (res.data?.code === 0) {
-        toast.success('Attachments claimed!');
-        await fetchMails();
-      } else {
-        toast.error(res.data?.message || 'Claim failed');
-      }
+      await mailApi.claimMailAttachment(mailId);
+      toast.success('Attachments claimed!');
+      await fetchMails();
     } catch {
       toast.error('Claim failed');
     } finally {
@@ -64,12 +58,10 @@ export default function MailPage() {
 
   const handleDelete = async (ids: number[]) => {
     try {
-      const res = await mailApi.deleteMail(ids);
-      if (res.data?.code === 0) {
-        toast.success(`Deleted ${ids.length} mail(s)`);
-        setSelectedIds(new Set());
-        await fetchMails();
-      }
+      await mailApi.deleteMail(ids);
+      toast.success(`Deleted ${ids.length} mail(s)`);
+      setSelectedIds(new Set());
+      await fetchMails();
     } catch {
       toast.error('Delete failed');
     }

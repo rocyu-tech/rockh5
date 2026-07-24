@@ -72,14 +72,14 @@ export default function VIPSection() {
 
   useEffect(() => {
     vipApi.getLevels().then((res) => {
-      if (res.data?.data?.length) setLevels(res.data.data);
+      if (res.data?.length) setLevels(res.data);
     }).catch((err) => {
       setUsingDemo(true);
       apiStatus.markFailed('vip/levels', getErrorMessage(err));
     });
     if (isLoggedIn) {
       vipApi.getInfo().then((res) => {
-        if (res.data?.data) setVipInfo(res.data.data);
+        if (res.data) setVipInfo(res.data);
       }).catch((err) => {
         apiStatus.markFailed('vip/info', getErrorMessage(err));
       });

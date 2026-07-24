@@ -198,7 +198,7 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
 
     try {
       const res = await wheelApi.spin(useFree || undefined);
-      const result = res.data?.data;
+      const result = res.data;
       if (result) {
         const prizes = config?.prizes ?? [];
         const prizeCount = prizes.length;

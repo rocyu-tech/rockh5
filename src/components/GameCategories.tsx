@@ -39,8 +39,8 @@ export default function GameCategories({ activeCategory, onCategoryChange }: Gam
 
   useEffect(() => {
     lobbyApi.getCategories().then((res) => {
-      if (res.data?.data?.length) {
-        setCategories([{ id: 0, name: 'All Games', sort_order: 0 }, ...res.data.data]);
+      if (res.data?.length) {
+        setCategories([{ id: 0, name: 'All Games', sort_order: 0 }, ...res.data]);
       }
     }).catch((err) => {
       apiStatus.markFailed('lobby/categories', getErrorMessage(err));
