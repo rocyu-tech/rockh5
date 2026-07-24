@@ -201,7 +201,7 @@ export default function TasksPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            if (isValidUrl(task.link_url)) {
+                            if (task.link_url && isValidUrl(task.link_url)) {
                               window.open(task.link_url, '_blank');
                             } else {
                               toast.error('Invalid link URL');
