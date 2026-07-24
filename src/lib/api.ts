@@ -600,7 +600,7 @@ export const taskApi = {
       receive_all_btn: list.some(t => t.receive_status === 1) ? 1 : 0,
       task_type_state: list,
     });
-    return { data: [wrap(getList(daily), 0), wrap(getList(weekly), 1), wrap(getList(growth), 2)] };
+    return [wrap(getList(daily), 0), wrap(getList(weekly), 1), wrap(getList(growth), 2)];
   },
   getTaskProgress: () => api.get<TaskProgress[]>("/task/progress"),
   claimReward: (taskId: number) =>
