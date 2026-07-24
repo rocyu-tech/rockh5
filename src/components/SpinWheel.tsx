@@ -54,8 +54,8 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
         wheelApi.getConfig(),
         wheelApi.getState(),
       ]);
-      setConfig(configRes.data?.data ?? null);
-      setState(stateRes.data?.data ?? null);
+      setConfig(configRes.data ?? null);
+      setState(stateRes.data ?? null);
     } catch (err: unknown) {
       console.error('[SpinWheel] fetch error:', err);
       setError('Failed to load wheel data');
@@ -214,7 +214,7 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
         setTimeout(() => {
           setShowResult(true);
           setSpinning(false);
-          wheelApi.getState().then(s => setState(s.data?.data ?? null));
+          wheelApi.getState().then(s => setState(s.data ?? null));
         }, 4500);
       }
     } catch (err: unknown) {
