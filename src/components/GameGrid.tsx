@@ -34,10 +34,11 @@ export default function GameGrid({ categoryId }: GameGridProps) {
 
       const res = await lobbyApi.getGames(params);
       const data = res.data;
+      const list = data?.games;
 
-      if (data?.list?.length) {
-        setGames(append ? (prev) => [...prev, ...data.list] : data.list);
-        setHasMore(data.list.length >= pageSize);
+      if (list?.length) {
+        setGames(append ? (prev) => [...prev, ...list] : list);
+        setHasMore(list.length >= pageSize);
       } else {
         setGames(append ? (prev) => prev : []);
         setHasMore(false);

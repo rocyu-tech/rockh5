@@ -75,8 +75,9 @@ export default function VIPPage() {
       try {
         // Fetch levels in the current UI language; backend supports en/zh/vi/th.
         const levelsRes = await vipApi.getLevels(locale);
-        if (!cancelled && levelsRes.data?.length) {
-          setLevels(levelsRes.data);
+        const levelsList = levelsRes.data?.levels;
+        if (!cancelled && levelsList?.length) {
+          setLevels(levelsList);
         }
         if (isLoggedIn) {
           const [infoRes, stateRes] = await Promise.all([

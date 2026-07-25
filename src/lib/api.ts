@@ -307,7 +307,7 @@ export const vipApi = {
   // The VIPLevel interface (above) is the canonical shape used by existing
   // components; we keep the response typed as VIPLevel[] for compatibility.
   getLevels: (lang?: string) =>
-    api.get<VIPLevel[]>("/vip/levels", { params: lang ? { lang } : undefined }),
+    api.get<{ levels: VIPLevel[] }>("/vip/levels", { params: lang ? { lang } : undefined }),
   getInfo: () =>
     api.get<{
       level: number;
@@ -350,10 +350,10 @@ export const historyApi = {
 
 // Lobby
 export const lobbyApi = {
-  getBanners: () => api.get<Banner[]>("/lobby/banners"),
-  getCategories: () => api.get<Category[]>("/lobby/categories"),
+  getBanners: () => api.get<{ banners: Banner[] }>("/lobby/banners"),
+  getCategories: () => api.get<{ categories: Category[] }>("/lobby/categories"),
   getGames: (params?: { category_id?: number; vendor_id?: number; keyword?: string; page?: number; page_size?: number }) =>
-    api.get<GameListResponse>("/lobby/games", { params }),
+    api.get<{ games: Game[]; total: number; page: number; page_size: number }>("/lobby/games", { params }),
   getConfig: () => api.get<Record<string, unknown>>("/lobby/config"),
   getSplash: () => api.get<Record<string, unknown>>("/lobby/splash"),
 };
@@ -361,9 +361,9 @@ export const lobbyApi = {
 // Game
 export const gameApi = {
   launch: (id: number) => api.get<{ game_url: string; launch_url: string; session_token: string; vendor: string; game_type?: string; game_id?: string; game_info_id?: number }>(`/game/launch/${id}`),
-  getVendors: () => api.get<GameVendor[]>("/game/vendors"),
+  getVendors: () => api.get<{ vendors: GameVendor[] }>("/game/vendors"),
   toggleFavorite: (gameId: number) => api.post<{ is_favorite: boolean }>("/game/manage/favorite", { game_id: gameId }),
-  getRecentGames: () => api.get<Game[]>("/game/manage/recent"),
+  getRecentGames: () => api.get<{ list: Game[] }>("/game/manage/recent"),
   searchGames: (keyword: string, page?: number, pageSize?: number) =>
     api.get<{ list: Game[]; total: number }>("/game/manage/search", { params: { keyword, page, page_size: pageSize } }),
   endSession: (sessionId: string) => api.post<{ result: string }>("/game/manage/end-session", { session_id: sessionId }),
@@ -391,7 +391,7 @@ export const accountApi = {
 
 // Activity
 export const activityApi = {
-  getList: () => api.get<Activity[]>("/activity/list"),
+  getList: () => api.get<{ activities: Activity[] }>("/activity/list"),
 
   // Check-in
   checkIn: () => api.post<{ bonus_amount: number; consecutive_days: number }>("/activity/check-in"),
@@ -543,8 +543,8 @@ export interface SpinResult {
 }
 
 export const itemApi = {
-  getInventory: () => api.get<InventoryItem[]>("/item/inventory"),
-  getList: () => api.get<ItemDefine[]>("/item/list"),
+  getInventory: () => api.get<{ items: InventoryItem[] }>("/item/inventory"),
+  getList: () => api.get<{ items: ItemDefine[] }>("/item/list"),
   useItem: (data: { item_id: number; quantity?: number }) =>
     api.post<{ quantity: number }>("/item/use", data),
   transfer: (data: { target_user_id: number; item_id: number; quantity: number }) =>
@@ -589,12 +589,12 @@ export interface TaskProgress {
 export const taskApi = {
   getTaskConfig: async () => {
     const [daily, weekly, growth] = await Promise.allSettled([
-      api.get<TaskItem[]>("/task/daily"),
-      api.get<TaskItem[]>("/task/weekly"),
-      api.get<TaskItem[]>("/task/growth"),
+      api.get<{ tasks?: TaskItem[] }>("/task/daily"),
+      api.get<{ tasks?: TaskItem[] }>("/task/weekly"),
+      api.get<{ tasks?: TaskItem[] }>("/task/growth"),
     ]);
-    const getList = (r: PromiseSettledResult<{ data: TaskItem[] }>): TaskItem[] =>
-      r.status === 'fulfilled' ? (r.value.data || []) : [];
+    const getList = (r: PromiseSettledResult<{ data?: { tasks?: TaskItem[] } }>): TaskItem[] =>
+      r.status === 'fulfilled' ? (r.value.data?.tasks || []) : [];
     const wrap = (list: TaskItem[], type: number): TaskTypeState => ({
       task_type: type,
       receive_all_btn: list.some(t => t.receive_status === 1) ? 1 : 0,
@@ -638,7 +638,7 @@ export interface MailListResult {
 }
 
 export const mailApi = {
-  getMailbox: () => api.get<MailListResult>("/mail/inbox"),
+  getMailbox: () => api.get<Record<string, unknown>>("/mail/inbox"),
   readMail: (id: number) =>
     api.post<{ mail_id: number; title: string; content: string; attachment?: Array<{ item_id: number; item_name: string; quantity: number; icon: string }> }>("/mail/read", { mail_id: id }),
   deleteMail: (ids: number[]) =>

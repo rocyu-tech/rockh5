@@ -17,7 +17,10 @@ export default function MailPage() {
   const fetchMails = useCallback(async () => {
     try {
       const res = await mailApi.getMailbox();
-      setMails(res.data?.list || []);
+      // Proto returns {mails: [...]}, map to flat array for the page
+      const data = res.data as Record<string, unknown> | undefined;
+      const list = data?.mails || data?.list;
+      setMails(Array.isArray(list) ? list : []);
     } catch {
       toast.error('Failed to load mails');
     } finally {

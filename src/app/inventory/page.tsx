@@ -41,10 +41,9 @@ export default function InventoryPage() {
     try {
       const res = await itemApi.getInventory();
       const data = res.data;
-      if (Array.isArray(data)) {
-        setItems(data);
-      } else if (data && typeof data === 'object' && 'list' in data) {
-        setItems((data as { list: InventoryItem[] }).list);
+      const items = data?.items;
+      if (Array.isArray(items)) {
+        setItems(items);
       } else {
         setItems([]);
       }

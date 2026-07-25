@@ -20,7 +20,7 @@ export default function GamesPage() {
     setLoadingRecent(true);
     try {
       const res = await gameApi.getRecentGames();
-      setRecentGames(res.data || []);
+      setRecentGames(res.data?.list || []);
     } catch { /* ignore */ }
     finally { setLoadingRecent(false); }
   }, [isLoggedIn]);

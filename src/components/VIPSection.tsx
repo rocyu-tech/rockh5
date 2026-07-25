@@ -72,7 +72,8 @@ export default function VIPSection() {
 
   useEffect(() => {
     vipApi.getLevels().then((res) => {
-      if (res.data?.length) setLevels(res.data);
+      const list = res.data?.levels;
+      if (list?.length) setLevels(list);
     }).catch((err) => {
       setUsingDemo(true);
       apiStatus.markFailed('vip/levels', getErrorMessage(err));

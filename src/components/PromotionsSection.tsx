@@ -85,8 +85,9 @@ export default function PromotionsSection({ onSpinClick }: PromotionsSectionProp
 
   useEffect(() => {
     activityApi.getList().then((res) => {
-      if (res.data?.length) {
-        setActivities(res.data);
+      const list = res.data?.activities;
+      if (list?.length) {
+        setActivities(list as unknown as Activity[]);
       }
     }).catch((err) => {
       setUsingDemo(true);
