@@ -385,7 +385,7 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
         )}
 
         {/* History */}
-        {state && state.history.length > 0 && (
+        {state?.history && state.history.length > 0 && (
           <div className="px-4 pb-4">
             <h3 className="text-xs font-medium text-[#8892b0] mb-2 uppercase tracking-wider">Recent Wins</h3>
             <div className="space-y-1 max-h-28 overflow-y-auto">
