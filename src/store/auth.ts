@@ -3,6 +3,18 @@ import { authApi, accountApi, mailApi, TOKEN_KEY, REFRESH_TOKEN_KEY } from "@/li
 import type { UserProfile, UserAssets } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api-status";
 
+// Sync the JWT to a non-httpOnly cookie so Next.js middleware can read it.
+// The cookie acts as a "logged-in" signal for route guards; the actual
+// token is still sent via the Authorization header by the axios interceptor.
+function syncTokenCookie(token: string | null) {
+  if (typeof document === 'undefined') return;
+  if (token) {
+    document.cookie = `access_token=${token}; path=/; max-age=${7*24*60*60}; samesite=lax`;
+  } else {
+    document.cookie = 'access_token=; path=/; max-age=0';
+  }
+}
+
 interface AuthState {
   token: string | null;
   refreshToken: string | null;
@@ -37,6 +49,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
       if (token) {
         set({ token, refreshToken, isLoggedIn: true });
+        syncTokenCookie(token);
         get().fetchProfile();
         get().fetchAssets();
       }
@@ -50,6 +63,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const data = res.data;
       localStorage.setItem(TOKEN_KEY, data.access_token);
       localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
+      syncTokenCookie(data.access_token);
       set({
         token: data.access_token,
         refreshToken: data.refresh_token,
@@ -73,6 +87,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (tokenData?.access_token) {
         localStorage.setItem(TOKEN_KEY, tokenData.access_token);
         localStorage.setItem(REFRESH_TOKEN_KEY, tokenData.refresh_token);
+        syncTokenCookie(tokenData.access_token);
         set({
           token: tokenData.access_token,
           refreshToken: tokenData.refresh_token,
@@ -101,6 +116,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
+    syncTokenCookie(null);
     set({
       token: null,
       refreshToken: null,

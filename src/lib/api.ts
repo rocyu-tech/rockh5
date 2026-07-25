@@ -67,6 +67,10 @@ function processQueue(error: unknown, token: string | null = null) {
 function forceLogout() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  // Clear the middleware cookie so Next.js route guards release immediately
+  if (typeof document !== 'undefined') {
+    document.cookie = 'access_token=; path=/; max-age=0';
+  }
   // Synchronously clear zustand auth state (no API call, no await)
   useAuthStore.setState({
     token: null,
@@ -150,6 +154,10 @@ api.interceptors.response.use(
         localStorage.setItem(TOKEN_KEY, newToken);
         if (newRefreshToken) {
           localStorage.setItem(REFRESH_TOKEN_KEY, newRefreshToken);
+        }
+        // Sync cookie for middleware route guard
+        if (typeof document !== 'undefined') {
+          document.cookie = `access_token=${newToken}; path=/; max-age=${7*24*60*60}; samesite=lax`;
         }
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${newToken}`;

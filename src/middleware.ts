@@ -57,9 +57,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for the access_token cookie (set by /auth/login).
-  // We also accept the legacy localStorage token via a custom header
-  // sent by the client (not implemented yet — cookie is the primary path).
+  // Check for the access_token cookie.
+  // This cookie is set client-side by auth store (syncTokenCookie) after
+  // login/register/hydrate. It mirrors the JWT from localStorage so that
+  // this server-side middleware can gate routes without reading localStorage.
   const accessToken = request.cookies.get('access_token')?.value;
 
   if (!accessToken) {
