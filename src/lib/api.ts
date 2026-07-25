@@ -20,6 +20,30 @@ export const api = axios.create({
   },
 });
 
+// ── camelCase → snake_case response normalizer ──────────────────────────
+// gRPC-Gateway proto3 default JSON uses lowerCamelCase (imageUrl, sortOrder…)
+// but the frontend expects snake_case (image_url, sort_order…).
+// This interceptor recursively converts ALL response keys so both
+// the current (camelCase) and future (UseProtoNames) backend work.
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+}
+function normalizeKeys(obj: unknown): unknown {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(normalizeKeys);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    out[camelToSnake(k)] = normalizeKeys(v);
+  }
+  return out;
+}
+api.interceptors.response.use((response) => {
+  if (response.data && typeof response.data === 'object') {
+    response.data = normalizeKeys(response.data);
+  }
+  return response;
+});
+
 // Request interceptor - add auth token
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
