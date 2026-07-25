@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useApiStatus, ApiStatusContext } from '@/lib/api-status';
 import { useAuthStore } from '@/store/auth';
@@ -12,11 +12,17 @@ export default function AppProvider({ children }: { children: React.ReactNode })
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [spinOpen, setSpinOpen] = useState(false);
+  const loginTimeRef = useRef(0);
   const { hydrate, isLoggedIn, fetchUnreadMailCount } = useAuthStore();
   const apiStatus = useApiStatus();
   const pathname = usePathname();
-  // P0: when on a full-screen game page, drop the `pb-14` bottom padding
-  // that reserves space for BottomNav (BottomNav returns null on /play/*).
+  // Track login time to suppress stale 401-triggered modal re-open
+  const prevLoggedInRef = useRef(false);
+  if (isLoggedIn && !prevLoggedInRef.current) {
+    loginTimeRef.current = Date.now();
+  }
+  prevLoggedInRef.current = isLoggedIn;
+
   const isGameRoute = pathname?.startsWith('/play/') ?? false;
 
   useEffect(() => {
@@ -37,6 +43,10 @@ export default function AppProvider({ children }: { children: React.ReactNode })
     // when a delayed 401 response triggers auth:logout
     const { isLoggedIn: currentlyLoggedIn } = useAuthStore.getState();
     if (!currentlyLoggedIn) {
+      // Guard: skip if login just succeeded within the last 3 seconds
+      // (fetchProfile/fetchAssets 401 race condition)
+      const elapsed = Date.now() - loginTimeRef.current;
+      if (loginTimeRef.current > 0 && elapsed < 3000) return;
       setLoginOpen(true);
     }
   }, []);
