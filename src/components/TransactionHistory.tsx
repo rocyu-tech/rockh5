@@ -23,7 +23,7 @@ interface TransactionHistoryProps {
 }
 
 type Transaction = Order & {
-  currency: string;
+  currency?: string;
   description?: string;
 };
 
