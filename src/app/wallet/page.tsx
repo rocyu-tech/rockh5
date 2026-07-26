@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
-import { shopApi } from '@/lib/api';
+import { shopApi, type Channel, type WithdrawChannel as ApiWithdrawChannel, type PaymentAccount } from '@/lib/api';
 import Navbar from '@/components/Navbar';
 import {
   Wallet, CreditCard, Building, Smartphone, Zap,
@@ -22,18 +22,8 @@ const isValidUrl = (url: string): boolean => {
   }
 };
 
-// === Shared types ===
-interface Channel {
-  id: number;
-  name: string;
-  icon?: string;
-  min_amount: number;
-  max_amount: number;
-  type?: string;
-}
-
-interface WithdrawChannel extends Channel {
-  daily_limit: number;
+// === Local extensions ===
+interface WithdrawChannel extends ApiWithdrawChannel {
   need_account: boolean;
 }
 
@@ -65,9 +55,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
   useEffect(() => {
     setLoading(true);
     shopApi.getPaymentChannels().then((res) => {
-      const raw = res.data;
-      // gRPC-Gateway returns { channels: [...] }, normalizeKeys keeps it as-is
-      const list = Array.isArray(raw) ? raw as Channel[] : (raw as { channels?: Channel[] }).channels ?? [];
+      const { channels: list } = res.data;
       setChannels(list);
       if (list.length > 0) setSelectedChannel(list[0].id);
     }).catch((err) => {
@@ -293,9 +281,7 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
   useEffect(() => {
     setLoading(true);
     shopApi.getWithdrawChannels().then((res) => {
-      const raw = res.data;
-      // gRPC-Gateway returns { channels: [...] }
-      const list = Array.isArray(raw) ? raw as WithdrawChannel[] : (raw as { channels?: WithdrawChannel[] }).channels ?? [];
+      const { channels: list } = res.data;
       setChannels(list);
       if (list.length > 0) setSelectedChannel(list[0].id);
     }).catch(() => {
@@ -677,7 +663,7 @@ function WalletPageInner() {
 
 // === Settings Tab Component ===
 function SettingsTab() {
-  const [paymentAccounts, setPaymentAccounts] = useState<Array<{ id: number; channel_type: string; account: string; account_name: string; is_default: number }>>([]);
+  const [paymentAccounts, setPaymentAccounts] = useState<PaymentAccount[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [newAccountChannel, setNewAccountChannel] = useState('');
@@ -694,9 +680,7 @@ function SettingsTab() {
   useEffect(() => {
     setLoadingAccounts(true);
     shopApi.getPaymentAccounts().then((res) => {
-      const raw = res.data;
-      // gRPC-Gateway returns { accounts: [...] }
-      const list = Array.isArray(raw) ? raw as typeof paymentAccounts : (raw as { accounts?: typeof paymentAccounts }).accounts ?? [];
+      const { accounts: list } = res.data;
       setPaymentAccounts(list);
     }).catch(() => {}).finally(() => setLoadingAccounts(false));
   }, []);
@@ -720,7 +704,7 @@ function SettingsTab() {
       setNewAccountTitle('');
       // Refresh list
       const listRes = await shopApi.getPaymentAccounts();
-      if (Array.isArray(listRes.data)) setPaymentAccounts(listRes.data as typeof paymentAccounts);
+      setPaymentAccounts(listRes.data.accounts);
     } catch {
       toast.error('Failed to add account');
     } finally {
@@ -814,13 +798,10 @@ function SettingsTab() {
               <div key={acc.id} className="flex items-center gap-3 p-2 bg-[#1e293b] rounded-lg">
                 <CreditCard className="w-4 h-4 text-[#8892b0] flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-[#8892b0] uppercase">{acc.channel_type}</p>
-                  <p className="text-xs text-white truncate">{acc.account}</p>
+                  <p className="text-[10px] text-[#8892b0] uppercase">{acc.bank_name}</p>
+                  <p className="text-xs text-white truncate">{acc.account_number}</p>
                   {acc.account_name && <p className="text-[10px] text-[#8892b0]">{acc.account_name}</p>}
                 </div>
-                {acc.is_default === 1 && (
-                  <span className="text-[9px] bg-[#f5a623]/20 text-[#f5a623] px-1.5 py-0.5 rounded-full">Default</span>
-                )}
               </div>
             ))}
           </div>

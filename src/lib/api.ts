@@ -8,6 +8,33 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 //     which happens before any user interaction triggers forceLogout.
 import { useAuthStore } from "@/store/auth";
 
+// ── Shop types (gRPC-Gateway response shapes) ──────────────────────────────
+export interface Channel {
+  id: number;
+  name: string;
+  type: string;
+  min_amount: number;
+  max_amount: number;
+  fee_rate: number;
+}
+export interface WithdrawChannel extends Channel {
+  daily_limit?: number;
+}
+export interface PaymentAccount {
+  id: number;
+  bank_name: string;
+  account_number: string;
+  account_name: string;
+  type: string;
+}
+export interface Order {
+  order_no: string;
+  type: string;
+  amount: number;
+  status: number;
+  created_at: string;
+}
+
 const TOKEN_KEY = "rockgame_token";
 const REFRESH_TOKEN_KEY = "rockgame_refresh_token";
 
@@ -455,10 +482,10 @@ export const shopApi = {
   }>("/shop/wallet"),
 
   // Payment channels (for deposit)
-  getPaymentChannels: () => api.get<unknown[]>("/shop/payment-channels"),
+  getPaymentChannels: () => api.get<{ channels: Channel[] }>("/shop/payment-channels"),
 
   // Withdraw channels
-  getWithdrawChannels: () => api.get<unknown[]>("/shop/withdraw-channels"),
+  getWithdrawChannels: () => api.get<{ channels: WithdrawChannel[] }>("/shop/withdraw-channels"),
 
   // Create recharge (deposit) order
   recharge: (data: { channel_id: number; amount: number }) =>
@@ -470,10 +497,10 @@ export const shopApi = {
 
   // Order history (type: "recharge" | "withdraw" | "all")
   getOrders: (params?: { type?: string; page?: number; page_size?: number }) =>
-    api.get<unknown[]>("/shop/orders", { params }),
+    api.get<{ orders: Order[]; total: number }>("/shop/orders", { params }),
 
   // User payment accounts (for withdrawal)
-  getPaymentAccounts: () => api.get<unknown[]>("/shop/payment-accounts"),
+  getPaymentAccounts: () => api.get<{ accounts: PaymentAccount[] }>("/shop/payment-accounts"),
   setPaymentAccount: (data: { id?: number; account_type: number; title: string; account: string; code?: string; username?: string }) =>
     api.post<{ id: number }>("/shop/payment-accounts", data),
 

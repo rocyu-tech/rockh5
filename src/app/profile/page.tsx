@@ -34,16 +34,11 @@ import { toast } from 'sonner';
 import { useLocale } from '@/i18n/provider';
 import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
 
-interface Transaction {
-  id: number;
-  type: 'recharge' | 'withdraw' | 'bonus' | string;
+type Transaction = import('@/lib/api').Order & {
   status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'processing' | string;
-  amount: number;
   currency?: string;
   description?: string;
-  order_no?: string;
-  created_at?: string;
-}
+};
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -94,14 +89,8 @@ export default function ProfilePage() {
       const params: Record<string, unknown> = { page: 1, page_size: 20 };
       if (filter !== 'all') params.type = filter;
       const res = await shopApi.getOrders(params as { page?: number; page_size?: number });
-      const data = res.data;
-      if (Array.isArray(data)) {
-        setTransactions(data as Transaction[]);
-      } else if (data && typeof data === 'object') {
-        // gRPC-Gateway returns { orders: [...], total: N }
-        const d = data as { orders?: Transaction[]; list?: Transaction[] };
-        setTransactions(d.orders ?? d.list ?? []);
-      }
+      const { orders } = res.data;
+      setTransactions(orders);
     } catch {
       setTransactions([]);
     } finally {

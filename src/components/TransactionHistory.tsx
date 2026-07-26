@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { shopApi } from '@/lib/api';
+import { shopApi, type Order } from '@/lib/api';
 import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
 import {
   TrendingUp,
@@ -22,16 +22,10 @@ interface TransactionHistoryProps {
   onOpenChange: (open: boolean) => void;
 }
 
-interface Transaction {
-  id: number;
-  order_no: string;
-  type: string;       // recharge / withdraw / bonus / spin
-  amount: number;
+type Transaction = Order & {
   currency: string;
-  status: string;     // pending / completed / failed / cancelled
-  created_at: string;
   description?: string;
-}
+};
 
 type FilterType = 'all' | 'recharge' | 'withdraw' | 'bonus';
 
@@ -63,18 +57,9 @@ export default function TransactionHistory({ open, onOpenChange }: TransactionHi
       const params: Record<string, unknown> = { page: p, page_size: pageSize };
       if (f !== 'all') params.type = f;
       const res = await shopApi.getOrders(params as { page?: number; page_size?: number });
-      const data = res.data;
-      if (Array.isArray(data)) {
-        setTransactions(data as Transaction[]);
-        setTotalPages(Math.max(1, Math.ceil(data.length / pageSize)));
-      } else if (data && typeof data === 'object') {
-        // gRPC-Gateway returns { orders: [...], total: N }
-        const d = data as { orders?: Transaction[]; list?: Transaction[]; total?: number };
-        const list = d.orders ?? d.list ?? [];
-        setTransactions(list);
-        const total = d.total ?? list.length;
-        setTotalPages(Math.max(1, Math.ceil(total / pageSize)));
-      }
+      const { orders, total } = res.data;
+      setTransactions(orders);
+      setTotalPages(Math.max(1, Math.ceil(total / pageSize)));
     } catch (err) {
       console.error('[TransactionHistory] fetch error:', err);
       setTransactions([]);
