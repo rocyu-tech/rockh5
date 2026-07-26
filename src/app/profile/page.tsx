@@ -35,7 +35,6 @@ import { useLocale } from '@/i18n/provider';
 import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
 
 type Transaction = import('@/lib/api').Order & {
-  status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'processing' | string;
   currency?: string;
   description?: string;
 };
