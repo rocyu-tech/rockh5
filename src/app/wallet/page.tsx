@@ -495,7 +495,7 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
         {selectedChannelData && (
           <p className="text-[10px] text-[#8892b0] mt-1">
             Min: ${selectedChannelData.min_amount} ~ Max: ${selectedChannelData.max_amount}
-            {selectedChannelData.daily_limit > 0 && ` | Daily: $${selectedChannelData.daily_limit.toLocaleString()}`}
+            {(selectedChannelData.daily_limit ?? 0) > 0 && ` | Daily: $${selectedChannelData.daily_limit!.toLocaleString()}`}
           </p>
         )}
       </div>
