@@ -65,12 +65,11 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
   useEffect(() => {
     setLoading(true);
     shopApi.getPaymentChannels().then((res) => {
-      const data = res.data;
-      if (Array.isArray(data)) {
-        const list = data as Channel[];
-        setChannels(list);
-        if (list.length > 0) setSelectedChannel(list[0].id);
-      }
+      const raw = res.data;
+      // gRPC-Gateway returns { channels: [...] }, normalizeKeys keeps it as-is
+      const list = Array.isArray(raw) ? raw as Channel[] : (raw as { channels?: Channel[] }).channels ?? [];
+      setChannels(list);
+      if (list.length > 0) setSelectedChannel(list[0].id);
     }).catch((err) => {
       apiStatus.markFailed('shop/payment-channels', getErrorMessage(err));
     }).finally(() => setLoading(false));
@@ -294,12 +293,11 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
   useEffect(() => {
     setLoading(true);
     shopApi.getWithdrawChannels().then((res) => {
-      const data = res.data;
-      if (Array.isArray(data)) {
-        const list = data as WithdrawChannel[];
-        setChannels(list);
-        if (list.length > 0) setSelectedChannel(list[0].id);
-      }
+      const raw = res.data;
+      // gRPC-Gateway returns { channels: [...] }
+      const list = Array.isArray(raw) ? raw as WithdrawChannel[] : (raw as { channels?: WithdrawChannel[] }).channels ?? [];
+      setChannels(list);
+      if (list.length > 0) setSelectedChannel(list[0].id);
     }).catch(() => {
       // BG-6 FIX: removed hardcoded mock withdraw channels;
       // on failure, channels stays empty and the UI shows a proper empty state.
@@ -696,8 +694,10 @@ function SettingsTab() {
   useEffect(() => {
     setLoadingAccounts(true);
     shopApi.getPaymentAccounts().then((res) => {
-      const data = res.data;
-      if (Array.isArray(data)) setPaymentAccounts(data as typeof paymentAccounts);
+      const raw = res.data;
+      // gRPC-Gateway returns { accounts: [...] }
+      const list = Array.isArray(raw) ? raw as typeof paymentAccounts : (raw as { accounts?: typeof paymentAccounts }).accounts ?? [];
+      setPaymentAccounts(list);
     }).catch(() => {}).finally(() => setLoadingAccounts(false));
   }, []);
 

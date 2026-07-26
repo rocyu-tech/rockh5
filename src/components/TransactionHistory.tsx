@@ -67,10 +67,13 @@ export default function TransactionHistory({ open, onOpenChange }: TransactionHi
       if (Array.isArray(data)) {
         setTransactions(data as Transaction[]);
         setTotalPages(Math.max(1, Math.ceil(data.length / pageSize)));
-      } else if (data && typeof data === 'object' && 'list' in data) {
-        const d = data as { list: Transaction[]; total: number };
-        setTransactions(d.list);
-        setTotalPages(Math.max(1, Math.ceil(d.total / pageSize)));
+      } else if (data && typeof data === 'object') {
+        // gRPC-Gateway returns { orders: [...], total: N }
+        const d = data as { orders?: Transaction[]; list?: Transaction[]; total?: number };
+        const list = d.orders ?? d.list ?? [];
+        setTransactions(list);
+        const total = d.total ?? list.length;
+        setTotalPages(Math.max(1, Math.ceil(total / pageSize)));
       }
     } catch (err) {
       console.error('[TransactionHistory] fetch error:', err);

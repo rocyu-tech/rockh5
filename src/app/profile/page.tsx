@@ -97,8 +97,10 @@ export default function ProfilePage() {
       const data = res.data;
       if (Array.isArray(data)) {
         setTransactions(data as Transaction[]);
-      } else if (data && typeof data === 'object' && 'list' in data) {
-        setTransactions((data as { list: Transaction[] }).list);
+      } else if (data && typeof data === 'object') {
+        // gRPC-Gateway returns { orders: [...], total: N }
+        const d = data as { orders?: Transaction[]; list?: Transaction[] };
+        setTransactions(d.orders ?? d.list ?? []);
       }
     } catch {
       setTransactions([]);
