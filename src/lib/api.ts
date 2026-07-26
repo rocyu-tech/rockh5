@@ -28,6 +28,7 @@ export interface PaymentAccount {
   type: string;
 }
 export interface Order {
+  id: number;
   order_no: string;
   type: string;
   amount: number;
