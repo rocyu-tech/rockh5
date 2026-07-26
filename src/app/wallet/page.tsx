@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
-import { shopApi, type Channel, type WithdrawChannel as ApiWithdrawChannel, type PaymentAccount } from '@/lib/api';
+import { shopApi, type Channel, type PaymentAccount } from '@/lib/api';
 import Navbar from '@/components/Navbar';
 import {
   Wallet, CreditCard, Building, Smartphone, Zap,
@@ -23,9 +23,9 @@ const isValidUrl = (url: string): boolean => {
 };
 
 // === Local extensions ===
-interface WithdrawChannel extends ApiWithdrawChannel {
-  need_account: boolean;
-}
+type WithdrawChannel = import('@/lib/api').WithdrawChannel & {
+  need_account?: boolean;
+};
 
 const PRESET_AMOUNTS = [10, 20, 50, 100, 200, 500, 1000, 2000];
 
