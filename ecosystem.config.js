@@ -27,7 +27,7 @@ module.exports = {
       exec_mode: "fork",
       // P0-2: disabled watch mode — it restarts on file changes which is
       // fine for dev but causes WS connection drops in production.
-      watch: false,
+      watch: true,
       env: {
         NODE_ENV: "production",
         PORT: 8890,
