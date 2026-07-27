@@ -119,7 +119,6 @@ export class GameWSClient {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000);
     this.reconnectAttempts++;
-    console.log(`[ws] reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
     this.reconnectTimer = setTimeout(() => this.connect(), delay);
   }
 

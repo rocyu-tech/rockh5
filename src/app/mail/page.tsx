@@ -42,7 +42,7 @@ export default function MailPage() {
         setMails(prev => prev.map(m =>
           m.mail_id === mail.mail_id ? { ...m, read_flag: 1 } : m
         ));
-      } catch { /* ignore */ }
+      } catch { console.warn('[mail] mark read failed'); }
     }
   };
 

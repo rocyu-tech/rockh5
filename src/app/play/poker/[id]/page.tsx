@@ -99,8 +99,6 @@ export default function PokerPage({ params }: { params: Promise<{ id: string }> 
     // Subscribe to push messages
     ws.on('room_ready', (_action, data) => {
       setMatched(true);
-      const d = data as { room_id: number; players: number[] };
-      console.log('[poker] room ready:', d);
     });
 
     ws.on('game_state', (_action, data) => {

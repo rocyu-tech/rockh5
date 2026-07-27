@@ -21,7 +21,7 @@ export default function GamesPage() {
     try {
       const res = await gameApi.getRecentGames();
       setRecentGames(res.data?.list || []);
-    } catch { /* ignore */ }
+    } catch { console.warn('[games] fetch recent failed'); }
     finally { setLoadingRecent(false); }
   }, [isLoggedIn]);
 

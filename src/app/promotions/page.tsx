@@ -25,7 +25,7 @@ export default function PromotionsPage() {
       ]);
       if (checkInRes) setCheckInState(checkInRes.data);
       if (giftRes) setTimedGift(giftRes.data);
-    } catch { /* ignore */ }
+    } catch { console.warn('[promotions] fetch states failed'); }
   }, [isLoggedIn]);
 
   useEffect(() => { fetchStates(); }, [fetchStates]);
