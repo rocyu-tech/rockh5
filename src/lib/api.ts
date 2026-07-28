@@ -2,11 +2,11 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/store/auth";
 import { useAppStore } from "@/store/app";
 
-// Token is now sent via httpOnly cookie (set by backend /auth/login).
+// Auth is handled entirely via httpOnly cookies (set by backend).
 // No localStorage token storage. No Authorization header.
-// The TOKEN_KEY/REFRESH_TOKEN_KEY constants are kept for ws.ts backward compat
-// (WS cannot use cookies, still reads from localStorage until WS auth is migrated).
-// TODO(wss): migrate WS to cookie-based auth, then remove these constants.
+//
+// WS still uses localStorage for ?token= query param (browser can't set cookies
+// on WebSocket upgrade). See ws.ts for details.
 
 // ── Shop types (gRPC-Gateway response shapes) ──────────────────────────────
 export interface Channel {
@@ -35,9 +35,6 @@ export interface Order {
   status: number;
   created_at: string;
 }
-const TOKEN_KEY = "rockgame_token";
-const REFRESH_TOKEN_KEY = "rockgame_refresh_token";
-
 export const api = axios.create({
   baseURL: "/api/v1",
   timeout: 15000,
@@ -473,9 +470,6 @@ export const shopApi = {
   setWithdrawPassword: (data: { old_pwd?: string; new_pwd: string }) =>
     api.post<{ result: string }>("/shop/withdraw-password", data),
 };
-
-// TOKEN_KEY/REFRESH_TOKEN_KEY are no longer exported.
-// They are only kept internally for ws.ts backward compat (TODO(wss): remove).
 
 export interface ItemDefine {
   id: number;
