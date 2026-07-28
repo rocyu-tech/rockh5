@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar';
 import PromotionsSection from '@/components/PromotionsSection';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/auth';
+import { useAppStore } from '@/store/app';
 import { activityApi } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -32,7 +33,7 @@ export default function PromotionsPage() {
 
   const handleCheckIn = async () => {
     if (!isLoggedIn) {
-      window.dispatchEvent(new CustomEvent('auth:logout'));
+      useAppStore.getState().requestLogin();
       return;
     }
     setCheckingIn(true);
@@ -49,7 +50,7 @@ export default function PromotionsPage() {
 
   const handleClaimTimedGift = async () => {
     if (!isLoggedIn) {
-      window.dispatchEvent(new CustomEvent('auth:logout'));
+      useAppStore.getState().requestLogin();
       return;
     }
     setClaimingGift(true);
@@ -66,17 +67,17 @@ export default function PromotionsPage() {
 
   const handleSpinClick = () => {
     if (!isLoggedIn) {
-      window.dispatchEvent(new CustomEvent('auth:logout'));
+      useAppStore.getState().requestLogin();
     } else {
-      window.dispatchEvent(new CustomEvent('nav:open-spin'));
+      useAppStore.getState().requestSpin();
     }
   };
 
   return (
     <div>
       <Navbar
-        onLoginClick={() => window.dispatchEvent(new CustomEvent('auth:logout'))}
-        onRegisterClick={() => window.dispatchEvent(new CustomEvent('nav:open-register'))}
+        onLoginClick={() => useAppStore.getState().requestLogin()}
+        onRegisterClick={() => useAppStore.getState().requestRegister()}
       />
 
       <main className="pt-14 px-4">

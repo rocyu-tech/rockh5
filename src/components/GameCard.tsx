@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Play, Flame, Star, Sparkles, Heart } from 'lucide-react';
 import { gameApi, type Game } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import { useAppStore } from '@/store/app';
 import { toast } from 'sonner';
 
 const gameGradients = [
@@ -43,7 +44,7 @@ export default function GameCard({ game }: GameCardProps) {
   const handlePlay = async () => {
     if (launching) return;
     if (!isLoggedIn) {
-      window.dispatchEvent(new CustomEvent('auth:logout'));
+      useAppStore.getState().requestLogin();
       return;
     }
     setLaunching(true);
@@ -73,7 +74,7 @@ export default function GameCard({ game }: GameCardProps) {
   const handleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isLoggedIn) {
-      window.dispatchEvent(new CustomEvent('auth:logout'));
+      useAppStore.getState().requestLogin();
       return;
     }
     try {

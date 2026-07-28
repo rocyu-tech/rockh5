@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Users, Copy, TrendingUp, DollarSign, UserPlus, ChevronRight, Loader2, AlertCircle, ExternalLink, BarChart3, Link2, Wallet } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { useAppStore } from '@/store/app';
 import { Button } from '@/components/ui/button';
 import { agentApi, AgentInfo, SubordinateItem, CommissionSummary, CommissionRecord } from '@/lib/api';
 import { toast } from 'sonner';
@@ -79,8 +80,8 @@ export default function AgentPage() {
     return (
       <div>
         <Navbar
-          onLoginClick={() => window.dispatchEvent(new CustomEvent('auth:logout'))}
-          onRegisterClick={() => window.dispatchEvent(new CustomEvent('nav:open-register'))}
+        onLoginClick={() => useAppStore.getState().requestLogin()}
+        onRegisterClick={() => useAppStore.getState().requestRegister()}
         />
         <div className="flex items-center justify-center pt-24">
           <Loader2 className="w-6 h-6 text-[#f5a623] animate-spin" />
@@ -94,8 +95,8 @@ export default function AgentPage() {
     return (
       <div>
         <Navbar
-          onLoginClick={() => window.dispatchEvent(new CustomEvent('auth:logout'))}
-          onRegisterClick={() => window.dispatchEvent(new CustomEvent('nav:open-register'))}
+        onLoginClick={() => useAppStore.getState().requestLogin()}
+        onRegisterClick={() => useAppStore.getState().requestRegister()}
         />
         <main className="pt-14 px-4">
           <div className="flex items-center gap-2 mb-4">
@@ -126,8 +127,8 @@ export default function AgentPage() {
   return (
     <div>
       <Navbar
-        onLoginClick={() => window.dispatchEvent(new CustomEvent('auth:logout'))}
-        onRegisterClick={() => window.dispatchEvent(new CustomEvent('nav:open-register'))}
+        onLoginClick={() => useAppStore.getState().requestLogin()}
+        onRegisterClick={() => useAppStore.getState().requestRegister()}
       />
 
       <main className="pt-14 px-4">

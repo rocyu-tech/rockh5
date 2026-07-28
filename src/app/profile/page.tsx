@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
+import { useAppStore } from '@/store/app';
 import { useApiStatusContext } from '@/lib/api-status';
 import Navbar from '@/components/Navbar';
 import VIPSection from '@/components/VIPSection';
@@ -69,7 +70,7 @@ export default function ProfilePage() {
   // If not logged in, show login prompt
   useEffect(() => {
     if (!isLoggedIn) {
-      window.dispatchEvent(new CustomEvent('auth:logout'));
+      useAppStore.getState().requestLogin();
     }
   }, [isLoggedIn]);
 

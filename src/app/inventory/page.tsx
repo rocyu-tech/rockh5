@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '@/store/auth';
+import { useAppStore } from '@/store/app';
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import { itemApi, InventoryItem } from '@/lib/api';
@@ -33,7 +34,7 @@ export default function InventoryPage() {
 
   useEffect(() => {
     if (!isLoggedIn) {
-      window.dispatchEvent(new CustomEvent('auth:logout'));
+      useAppStore.getState().requestLogin();
     }
   }, [isLoggedIn]);
 

@@ -1,23 +1,15 @@
 import { create } from "zustand";
-import { authApi, accountApi, mailApi, TOKEN_KEY, REFRESH_TOKEN_KEY } from "@/lib/api";
+import { authApi, accountApi, mailApi } from "@/lib/api";
 import type { UserProfile, UserAssets } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api-status";
 
-// Sync the JWT to a non-httpOnly cookie so Next.js middleware can read it.
-// The cookie acts as a "logged-in" signal for route guards; the actual
-// token is still sent via the Authorization header by the axios interceptor.
-function syncTokenCookie(token: string | null) {
-  if (typeof document === 'undefined') return;
-  if (token) {
-    document.cookie = `access_token=${token}; path=/; max-age=${7*24*60*60}; samesite=lax`;
-  } else {
-    document.cookie = 'access_token=; path=/; max-age=0';
-  }
-}
+// Auth is now entirely httpOnly cookie based.
+// No localStorage token storage. No client-side token in memory.
+// The middleware cookie (access_token) is only needed for Next.js route guards
+// and is set/cleared by api.ts forceLogout. We no longer need syncTokenCookie
+// here because the backend /auth/login response sets the httpOnly cookie directly.
 
 interface AuthState {
-  token: string | null;
-  refreshToken: string | null;
   user: UserProfile | null;
   assets: UserAssets | null;
   isLoggedIn: boolean;
@@ -34,8 +26,6 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  token: null,
-  refreshToken: null,
   user: null,
   assets: null,
   isLoggedIn: false,
@@ -44,15 +34,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   unreadMailCount: 0,
 
   hydrate: () => {
+    // With httpOnly cookies, we can't check if the user has a valid session
+    // from client-side JS. Instead, we try to fetch the profile — if it
+    // succeeds (cookie is valid), we're logged in. If it 401s, the axios
+    // interceptor handles forceLogout and opens the login modal.
     if (typeof window !== "undefined") {
-      const token = localStorage.getItem(TOKEN_KEY);
-      const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-      if (token) {
-        set({ token, refreshToken, isLoggedIn: true });
-        syncTokenCookie(token);
-        get().fetchProfile();
-        get().fetchAssets();
-      }
+      get().fetchProfile();
+      get().fetchAssets();
     }
   },
 
@@ -60,13 +48,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       const res = await authApi.login(email, password);
-      const data = res.data;
-      localStorage.setItem(TOKEN_KEY, data.access_token);
-      localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
-      syncTokenCookie(data.access_token);
+      // Backend sets httpOnly cookies on the login response.
+      // No client-side token storage needed.
       set({
-        token: data.access_token,
-        refreshToken: data.refresh_token,
         isLoggedIn: true,
         isLoading: false,
       });
@@ -85,12 +69,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const res = await authApi.register(data);
       const tokenData = res.data;
       if (tokenData?.access_token) {
-        localStorage.setItem(TOKEN_KEY, tokenData.access_token);
-        localStorage.setItem(REFRESH_TOKEN_KEY, tokenData.refresh_token);
-        syncTokenCookie(tokenData.access_token);
+        // Backend sets httpOnly cookies on register response.
         set({
-          token: tokenData.access_token,
-          refreshToken: tokenData.refresh_token,
           isLoggedIn: true,
           isLoading: false,
         });
@@ -108,18 +88,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     // Call backend logout API to invalidate token server-side
+    // (clears httpOnly cookies server-side)
     try {
       const { api } = await import("@/lib/api");
       await api.post("/auth/logout");
     } catch {
       // Ignore logout API errors — still clear local state
     }
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-    syncTokenCookie(null);
     set({
-      token: null,
-      refreshToken: null,
       user: null,
       assets: null,
       isLoggedIn: false,
@@ -130,7 +106,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   fetchProfile: async () => {
     try {
       const res = await accountApi.getProfile();
-      set({ user: res.data });
+      set({ user: res.data, isLoggedIn: true });
     } catch (err) {
       // Auth errors (401) are handled by the axios interceptor.
       // Log non-auth errors for debugging.

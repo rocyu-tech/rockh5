@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import BannerCarousel from '@/components/BannerCarousel';
 import { useAuthStore } from '@/store/auth';
+import { useAppStore } from '@/store/app';
 import { Gamepad2, Users, Trophy, Shield, Wallet, Gift, Crown, RotateCw } from 'lucide-react';
 
 export default function Home() {
@@ -12,15 +13,15 @@ export default function Home() {
 
   const handleSpinClick = () => {
     if (!isLoggedIn) {
-      window.dispatchEvent(new CustomEvent('auth:logout'));
+      useAppStore.getState().requestLogin();
     } else {
-      window.dispatchEvent(new CustomEvent('nav:open-spin'));
+      useAppStore.getState().requestSpin();
     }
   };
 
   const handleQuickAction = (path: string) => {
     if (!isLoggedIn) {
-      window.dispatchEvent(new CustomEvent('auth:logout'));
+      useAppStore.getState().requestLogin();
       return;
     }
     router.push(path);
@@ -29,11 +30,8 @@ export default function Home() {
   return (
     <div>
       <Navbar
-        onLoginClick={() => window.dispatchEvent(new CustomEvent('auth:logout'))}
-        onRegisterClick={() => {
-          // Trigger register modal - dispatch custom event
-          window.dispatchEvent(new CustomEvent('nav:open-register'));
-        }}
+        onLoginClick={() => useAppStore.getState().requestLogin()}
+        onRegisterClick={() => useAppStore.getState().requestRegister()}
       />
 
       <main className="pt-14 px-4">

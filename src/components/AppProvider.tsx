@@ -4,10 +4,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useApiStatus, ApiStatusContext } from '@/lib/api-status';
 import { useAuthStore } from '@/store/auth';
+import { useAppStore } from '@/store/app';
 import LoginModal from '@/components/LoginModal';
 import RegisterModal from '@/components/RegisterModal';
 import SpinWheel from '@/components/SpinWheel';
 import ConnectionBanner from '@/components/ConnectionBanner';
+
 export default function AppProvider({ children }: { children: React.ReactNode }) {
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
@@ -16,6 +18,7 @@ export default function AppProvider({ children }: { children: React.ReactNode })
   const { hydrate, isLoggedIn, fetchUnreadMailCount } = useAuthStore();
   const apiStatus = useApiStatus();
   const pathname = usePathname();
+
   // Track login time to suppress stale 401-triggered modal re-open
   const prevLoggedInRef = useRef(false);
   if (isLoggedIn && !prevLoggedInRef.current) {
@@ -37,42 +40,58 @@ export default function AppProvider({ children }: { children: React.ReactNode })
     return () => clearInterval(timer);
   }, [isLoggedIn, fetchUnreadMailCount]);
 
-  const handleAuthLogout = useCallback(() => {
-    // Only show login modal if not already logged in
-    // This prevents re-opening the login modal right after successful login
-    // when a delayed 401 response triggers auth:logout
-    const { isLoggedIn: currentlyLoggedIn } = useAuthStore.getState();
-    if (!currentlyLoggedIn) {
-      // Guard: skip if login just succeeded within the last 3 seconds
-      // (fetchProfile/fetchAssets 401 race condition)
-      const elapsed = Date.now() - loginTimeRef.current;
-      if (loginTimeRef.current > 0 && elapsed < 3000) return;
-      setLoginOpen(true);
-    }
-  }, []);
+  // ── Zustand-driven modal control (replaces CustomEvent listeners) ──────
+  // Subscribe to appStore signals. On each signal:
+  //   - Check guards (e.g. logged-in status for spin)
+  //   - Open the appropriate modal
+  //   - Clear the request flag
 
-  const handleOpenSpin = useCallback(() => {
-    const { isLoggedIn: currentlyLoggedIn } = useAuthStore.getState();
-    if (currentlyLoggedIn) {
-      setSpinOpen(true);
-    } else {
-      setLoginOpen(true);
-    }
-  }, []);
-
-  const handleOpenRegister = useCallback(() => setRegisterOpen(true), []);
-
+  // Login request from api.ts forceLogout or page components
   useEffect(() => {
-    window.addEventListener('auth:logout', handleAuthLogout);
-    window.addEventListener('nav:open-spin', handleOpenSpin);
-    window.addEventListener('nav:open-register', handleOpenRegister);
+    const unsub = useAppStore.subscribe((state, prev) => {
+      if (state.openLoginRequested && !prev.openLoginRequested) {
+        const { isLoggedIn: currentlyLoggedIn } = useAuthStore.getState();
+        if (!currentlyLoggedIn) {
+          // Guard: skip if login just succeeded within the last 3 seconds
+          const elapsed = Date.now() - loginTimeRef.current;
+          if (loginTimeRef.current > 0 && elapsed < 3000) {
+            useAppStore.getState().clearRequests();
+            return;
+          }
+          setLoginOpen(true);
+        }
+        useAppStore.getState().clearRequests();
+      }
+    });
+    return unsub;
+  }, []);
 
-    return () => {
-      window.removeEventListener('auth:logout', handleAuthLogout);
-      window.removeEventListener('nav:open-spin', handleOpenSpin);
-      window.removeEventListener('nav:open-register', handleOpenRegister);
-    };
-  }, [handleAuthLogout, handleOpenSpin, handleOpenRegister]);
+  // Register request
+  useEffect(() => {
+    const unsub = useAppStore.subscribe((state, prev) => {
+      if (state.openRegisterRequested && !prev.openRegisterRequested) {
+        setRegisterOpen(true);
+        useAppStore.getState().clearRequests();
+      }
+    });
+    return unsub;
+  }, []);
+
+  // Spin request (requires login)
+  useEffect(() => {
+    const unsub = useAppStore.subscribe((state, prev) => {
+      if (state.openSpinRequested && !prev.openSpinRequested) {
+        const { isLoggedIn: currentlyLoggedIn } = useAuthStore.getState();
+        if (currentlyLoggedIn) {
+          setSpinOpen(true);
+        } else {
+          setLoginOpen(true);
+        }
+        useAppStore.getState().clearRequests();
+      }
+    });
+    return unsub;
+  }, []);
 
   const switchToRegister = () => {
     setLoginOpen(false);

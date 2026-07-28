@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle2, Gift, Trophy, Zap, Clock, Star, Target, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { useAppStore } from '@/store/app';
 import { Button } from '@/components/ui/button';
 import { taskApi, TaskTypeState, TaskItem } from '@/lib/api';
 import { toast } from 'sonner';
@@ -88,8 +89,8 @@ export default function TasksPage() {
   return (
     <div>
       <Navbar
-        onLoginClick={() => window.dispatchEvent(new CustomEvent('auth:logout'))}
-        onRegisterClick={() => window.dispatchEvent(new CustomEvent('nav:open-register'))}
+        onLoginClick={() => useAppStore.getState().requestLogin()}
+        onRegisterClick={() => useAppStore.getState().requestRegister()}
       />
 
       <main className="pt-14 px-4">

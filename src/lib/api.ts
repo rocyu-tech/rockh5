@@ -1,12 +1,12 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
-// P0-8 FIX: import the auth store to synchronize zustand state on forceLogout.
-// This creates a circular import (store/auth.ts imports TOKEN_KEY from this file),
-// but it is safe because:
-//   - Both modules only reference each other inside function bodies (runtime),
-//     never at module top-level (load time).
-//   - ESM live bindings resolve correctly once both modules finish loading,
-//     which happens before any user interaction triggers forceLogout.
 import { useAuthStore } from "@/store/auth";
+import { useAppStore } from "@/store/app";
+
+// Token is now sent via httpOnly cookie (set by backend /auth/login).
+// No localStorage token storage. No Authorization header.
+// The TOKEN_KEY/REFRESH_TOKEN_KEY constants are kept for ws.ts backward compat
+// (WS cannot use cookies, still reads from localStorage until WS auth is migrated).
+// TODO(wss): migrate WS to cookie-based auth, then remove these constants.
 
 // ── Shop types (gRPC-Gateway response shapes) ──────────────────────────────
 export interface Channel {
@@ -35,7 +35,6 @@ export interface Order {
   status: number;
   created_at: string;
 }
-
 const TOKEN_KEY = "rockgame_token";
 const REFRESH_TOKEN_KEY = "rockgame_refresh_token";
 
@@ -72,17 +71,11 @@ api.interceptors.response.use((response) => {
   return response;
 });
 
-// Request interceptor - add auth token
+// Request interceptor — no Authorization header needed.
+// Auth is sent via httpOnly cookie (withCredentials: true on the axios instance).
+// This interceptor is kept as a no-op hook for future use if needed.
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    if (typeof window !== "undefined") {
-      const token = localStorage.getItem(TOKEN_KEY);
-      if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
-    return config;
-  },
+  (config: InternalAxiosRequestConfig) => config,
   (error) => Promise.reject(error)
 );
 
@@ -104,35 +97,25 @@ function processQueue(error: unknown, token: string | null = null) {
   failedQueue = [];
 }
 
-// Helper: clear tokens and trigger login dialog
+// Helper: clear auth state and request login dialog.
 //
-// P0-8 FIX: previously this function only cleared localStorage and dispatched
-// the 'auth:logout' event, leaving the zustand store's `isLoggedIn` flag
-// still `true`. AppProvider.handleAuthLogout checks `if (!currentlyLoggedIn)`
-// before opening the login modal — so when a 401 triggered forceLogout, the
-// modal never appeared and the user was stuck in a "looks-logged-in but every
-// request fails" limbo state.
-//
-// Fix: synchronously clear zustand state (no async logout API call) so
-// isLoggedIn=false BEFORE the event fires. AppProvider's guard passes and
-// the login modal opens correctly.
+// Token is httpOnly cookie — we cannot clear it from JS.
+// We clear the middleware mirror cookie so Next.js route guards release immediately,
+// clear zustand auth state, and signal AppProvider to open the login modal.
 function forceLogout() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
   // Clear the middleware cookie so Next.js route guards release immediately
   if (typeof document !== 'undefined') {
     document.cookie = 'access_token=; path=/; max-age=0';
   }
   // Synchronously clear zustand auth state (no API call, no await)
   useAuthStore.setState({
-    token: null,
-    refreshToken: null,
     user: null,
     assets: null,
     isLoggedIn: false,
     lastError: null,
   });
-  window.dispatchEvent(new CustomEvent("auth:logout"));
+  // Signal AppProvider to open login modal via Zustand (replaces CustomEvent)
+  useAppStore.getState().requestLogin();
 }
 
 // Debounce: only trigger login dialog once even if multiple 401s fire
@@ -165,28 +148,14 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Check if we have a refresh token at all
-    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    // httpOnly cookie handles auth — we can't check if refresh token exists
+    // from JS. Just try to refresh; if the server's refresh_token cookie is
+    // missing/expired, the refresh call will fail and we forceLogout.
 
-    if (!refreshToken) {
-      // No refresh token — user is not logged in or session expired
-      // Only trigger login popup once per 5 seconds to avoid spam
-      const now = Date.now();
-      if (now - lastLogoutTime > LOGOUT_COOLDOWN) {
-        lastLogoutTime = now;
-        forceLogout();
-      }
-      return Promise.reject(error);
-    }
-
-    // We have a refresh token, try to refresh
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject });
-      }).then((token) => {
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-        }
+      }).then(() => {
         return api(originalRequest);
       });
     }
@@ -195,44 +164,39 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const res = await axios.post("/api/v1/auth/refresh", {
-        refresh_token: refreshToken,
+      const res = await axios.post("/api/v1/auth/refresh", null, {
+        withCredentials: true, // send httpOnly refresh cookie
       });
 
       const newToken = res.data?.access_token;
-      const newRefreshToken = res.data?.refresh_token;
 
       if (newToken) {
-        localStorage.setItem(TOKEN_KEY, newToken);
-        if (newRefreshToken) {
-          localStorage.setItem(REFRESH_TOKEN_KEY, newRefreshToken);
-        }
-        // Sync cookie for middleware route guard
-        if (typeof document !== 'undefined') {
-          document.cookie = `access_token=${newToken}; path=/; max-age=${7*24*60*60}; samesite=lax`;
-        }
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        }
+        // Token rotation is handled entirely by httpOnly cookies.
+        // Backend sets new access_token cookie on refresh response.
+        // No localStorage writes needed.
         processQueue(null, newToken);
-        // P0-7: notify active WebSocket clients to refresh their token.
-        // Browsers can't set Authorization headers on WS upgrade, so the WS
-        // client holds a stale token after access_token rotation. This event
-        // lets GameWSClient instances re-connect with the fresh token before
-        // the old one expires (15min TTL) — preventing mid-hand disconnects.
+        // Notify WS clients of token refresh via Zustand (replaces CustomEvent)
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:token-refreshed', { detail: { token: newToken } }));
+          useAppStore.getState().setLastRefreshedToken(newToken);
         }
         return api(originalRequest);
       }
 
       // Refresh returned no token — force logout
-      forceLogout();
+      const now = Date.now();
+      if (now - lastLogoutTime > LOGOUT_COOLDOWN) {
+        lastLogoutTime = now;
+        forceLogout();
+      }
       processQueue(error, null);
       return Promise.reject(error);
     } catch (refreshError) {
       // Refresh failed — force logout
-      forceLogout();
+      const now = Date.now();
+      if (now - lastLogoutTime > LOGOUT_COOLDOWN) {
+        lastLogoutTime = now;
+        forceLogout();
+      }
       processQueue(refreshError, null);
       return Promise.reject(refreshError);
     } finally {
@@ -510,7 +474,8 @@ export const shopApi = {
     api.post<{ result: string }>("/shop/withdraw-password", data),
 };
 
-export { TOKEN_KEY, REFRESH_TOKEN_KEY };
+// TOKEN_KEY/REFRESH_TOKEN_KEY are no longer exported.
+// They are only kept internally for ws.ts backward compat (TODO(wss): remove).
 
 export interface ItemDefine {
   id: number;

@@ -8,6 +8,7 @@ import GameGrid from '@/components/GameGrid';
 import GameCard from '@/components/GameCard';
 import { gameApi, Game } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import { useAppStore } from '@/store/app';
 
 export default function GamesPage() {
   const [activeCategory, setActiveCategory] = useState(0);
@@ -30,8 +31,8 @@ export default function GamesPage() {
   return (
     <div>
       <Navbar
-        onLoginClick={() => window.dispatchEvent(new CustomEvent('auth:logout'))}
-        onRegisterClick={() => window.dispatchEvent(new CustomEvent('nav:open-register'))}
+        onLoginClick={() => useAppStore.getState().requestLogin()}
+        onRegisterClick={() => useAppStore.getState().requestRegister()}
       />
 
       <main className="pt-14 px-4">

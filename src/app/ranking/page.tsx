@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Trophy, Medal, Crown, TrendingUp, Loader2, AlertCircle } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { useAppStore } from '@/store/app';
 import { rankApi, RankItem } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -53,8 +54,8 @@ export default function RankingPage() {
   return (
     <div>
       <Navbar
-        onLoginClick={() => window.dispatchEvent(new CustomEvent('auth:logout'))}
-        onRegisterClick={() => window.dispatchEvent(new CustomEvent('nav:open-register'))}
+        onLoginClick={() => useAppStore.getState().requestLogin()}
+        onRegisterClick={() => useAppStore.getState().requestRegister()}
       />
 
       <main className="pt-14 px-4">

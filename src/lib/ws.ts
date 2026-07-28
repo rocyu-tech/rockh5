@@ -6,6 +6,12 @@
 // - Message queue: messages sent before connection open are queued
 // - Request-response matching via req_id
 // - Push message subscription (for room_ready, round_end, etc.)
+//
+// Note: WebSocket cannot send httpOnly cookies on the upgrade request.
+// Token is still passed via ?token= query param from localStorage.
+// TODO(wss): when backend WS supports cookie auth, remove localStorage reads.
+
+import { useAppStore } from "@/store/app";
 
 type WSMessageHandler = (action: string, data: unknown) => void;
 
@@ -49,9 +55,9 @@ export class GameWSClient {
 
   connect() {
     this.isManualClose = false;
-    // P0-7: re-read token from localStorage on every connect so reconnects
-    // don't reuse a stale token (the axios interceptor may have rotated it
-    // since this client was constructed).
+    // Re-read token from localStorage on every connect so reconnects
+    // don't reuse a stale token.
+    // TODO(wss): remove localStorage read once WS supports cookie auth.
     if (typeof window !== 'undefined') {
       const fresh = localStorage.getItem('rockgame_token');
       if (fresh) this.token = fresh;
@@ -176,39 +182,35 @@ export class GameWSClient {
     return this.ws?.readyState === WebSocket.OPEN;
   }
 
-  // P0-7: refresh the token used for WebSocket auth.
+  // Refresh the token used for WebSocket auth.
   //
-  // Browsers cannot set the Authorization header on a native WebSocket()
-  // upgrade request, so the JWT is passed as ?token= in the query string.
-  // The token is captured at construction time and reused for reconnects —
-  // but access tokens expire every 15 minutes. Without this method, a
-  // long-lived poker session would lose its WS connection on the next
-  // reconnect attempt (the stale token gets 401).
+  // Browsers cannot set cookies on a native WebSocket() upgrade request,
+  // so the JWT is passed as ?token= in the query string. The token is
+  // captured at construction time and reused for reconnects — but access
+  // tokens expire. Without this method, a long-lived poker session would
+  // lose its WS connection on the next reconnect attempt (stale token).
   //
-  // The axios response interceptor calls this method (via the global
-  // 'auth:token-refreshed' window event) whenever the access token is
-  // rotated. We update this.token and, if the connection is currently
-  // OPEN, do nothing (the existing connection is still valid until the
-  // server closes it). If we're in a reconnect backoff, the next
-  // connect() call will pick up the new token via the localStorage read
-  // in connect().
+  // The axios response interceptor notifies via Zustand (useAppStore)
+  // whenever the access token is rotated. We update this.token here.
+  // Also write to localStorage for the connect() re-read path.
   refreshToken(newToken: string) {
     if (!newToken || newToken === this.token) return;
     this.token = newToken;
-    // No need to reconnect if currently OPEN — the existing connection
-    // was authenticated with the old (still-valid) token. The new token
-    // will be used on the next connect() cycle.
+    // Persist for connect() re-read on reconnect.
+    // TODO(wss): remove once WS supports cookie auth.
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('rockgame_token', newToken);
+    }
   }
 }
 
-// P0-7: subscribe to global 'auth:token-refreshed' events so all
-// GameWSClient instances update their token when axios rotates it.
-// The registry is declared at the top of this file (activeClients).
+// Subscribe to Zustand token refresh signal so all active GameWSClient
+// instances update their token when axios rotates it.
+// Replaces the previous window.addEventListener('auth:token-refreshed') approach.
 if (typeof window !== 'undefined') {
-  window.addEventListener('auth:token-refreshed', (event: Event) => {
-    const detail = (event as CustomEvent).detail as { token: string } | undefined;
-    if (detail?.token) {
-      activeClients.forEach((c) => c.refreshToken(detail.token));
+  useAppStore.subscribe((state, prev) => {
+    if (state.lastRefreshedToken && state.lastRefreshedToken !== prev.lastRefreshedToken) {
+      activeClients.forEach((c) => c.refreshToken(state.lastRefreshedToken!));
     }
   });
 }

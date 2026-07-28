@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Mail, MailOpen, Trash2, Download, Loader2, AlertCircle, ChevronDown, ChevronUp, Bell } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { useAppStore } from '@/store/app';
 import { Button } from '@/components/ui/button';
 import { mailApi, MailItem } from '@/lib/api';
 import { toast } from 'sonner';
@@ -82,8 +83,8 @@ export default function MailPage() {
   return (
     <div>
       <Navbar
-        onLoginClick={() => window.dispatchEvent(new CustomEvent('auth:logout'))}
-        onRegisterClick={() => window.dispatchEvent(new CustomEvent('nav:open-register'))}
+        onLoginClick={() => useAppStore.getState().requestLogin()}
+        onRegisterClick={() => useAppStore.getState().requestRegister()}
       />
 
       <main className="pt-14 px-4">
