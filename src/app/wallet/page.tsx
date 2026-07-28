@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
-import { shopApi, type Channel, type PaymentAccount } from '@/lib/api';
+import { shopApi, type Channel, type PaymentAccount, api } from '@/lib/api';
 import Navbar from '@/components/Navbar';
 import {
   Wallet, CreditCard, Building, Smartphone, Zap,
@@ -27,7 +27,8 @@ type WithdrawChannel = import('@/lib/api').WithdrawChannel & {
   need_account?: boolean;
 };
 
-const PRESET_AMOUNTS = [10, 20, 50, 100, 200, 500, 1000, 2000];
+const DEFAULT_PRESET_AMOUNTS = [10, 20, 50, 100, 200, 500, 1000, 2000];
+const DEPOSIT_PRESET_AMOUNTS = [10, 20, 50, 100, 200, 500, 1000, 2000];
 
 const CHANNEL_ICONS: Record<string, typeof CreditCard> = {
   usdt: CreditCard,
@@ -223,7 +224,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
       {/* Preset amounts */}
       <div className="mb-3">
         <div className="grid grid-cols-4 gap-2">
-          {PRESET_AMOUNTS.map((val) => (
+          {DEPOSIT_PRESET_AMOUNTS.map((val) => (
             <button
               key={val}
               onClick={() => { setAmount(String(val)); setError(''); }}
@@ -277,16 +278,22 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [orderNo, setOrderNo] = useState('');
   const [error, setError] = useState('');
+  const [presetAmounts, setPresetAmounts] = useState<number[]>(DEFAULT_PRESET_AMOUNTS);
 
   useEffect(() => {
     setLoading(true);
-    shopApi.getWithdrawChannels().then((res) => {
-      const { channels: list } = res.data;
+    Promise.all([
+      shopApi.getWithdrawChannels(),
+      api.get<{ amounts: number[] }>('/shop/withdraw-amount-options').catch(() => ({ data: { amounts: [] } })),
+    ]).then(([channelsRes, amountsRes]) => {
+      const { channels: list } = channelsRes.data;
       setChannels(list);
       if (list.length > 0) setSelectedChannel(list[0].id);
+      const amounts = amountsRes.data?.amounts;
+      if (amounts && amounts.length > 0) {
+        setPresetAmounts(amounts);
+      }
     }).catch(() => {
-      // BG-6 FIX: removed hardcoded mock withdraw channels;
-      // on failure, channels stays empty and the UI shows a proper empty state.
       setChannels([]);
       setSelectedChannel(null);
     }).finally(() => setLoading(false));
@@ -503,7 +510,7 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
       {/* Preset amounts */}
       <div className="mb-3">
         <div className="grid grid-cols-4 gap-2">
-          {PRESET_AMOUNTS.filter((val) => val <= balance || balance <= 0).map((val) => (
+          {presetAmounts.filter((val) => val <= balance || balance <= 0).map((val) => (
             <button
               key={val}
               onClick={() => handleAmountClick(val)}
