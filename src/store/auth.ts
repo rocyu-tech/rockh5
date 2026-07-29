@@ -67,9 +67,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, lastError: null });
     try {
       const res = await authApi.register(data);
-      const tokenData = res.data;
-      if (tokenData?.access_token) {
-        // Backend sets httpOnly cookies on register response.
+      // Backend sets httpOnly cookies on register response.
+      // Token is NOT in the response body (httpOnly means XSS can't read it).
+      if (res.data?.user_id) {
         set({
           isLoggedIn: true,
           isLoading: false,
@@ -92,8 +92,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { api } = await import("@/lib/api");
       await api.post("/auth/logout");
-    } catch {
-      // Ignore logout API errors — still clear local state
+    } catch (err) {
+      // Best-effort: still clear local state even if logout API fails
+      console.warn('[auth] logout API call failed:', err);
     }
     set({
       user: null,
@@ -112,7 +113,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Log non-auth errors for debugging.
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status && status !== 401 && status !== 403) {
-        console.warn('[auth] fetchProfile failed:', status);
+        console.warn('[auth] fetchProfile failed:', getErrorMessage(err));
       }
     }
   },
@@ -124,7 +125,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status && status !== 401 && status !== 403) {
-        console.warn('[auth] fetchAssets failed:', status);
+        console.warn('[auth] fetchAssets failed:', getErrorMessage(err));
       }
     }
   },
@@ -133,8 +134,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await mailApi.getUnreadCount();
       set({ unreadMailCount: res.data?.unread_count || 0 });
-    } catch {
-      // Silently fail
+    } catch (err) {
+      console.warn('[auth] fetch unread mail count failed:', err);
     }
   },
 }));

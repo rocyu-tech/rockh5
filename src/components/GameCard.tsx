@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Play, Flame, Star, Sparkles, Heart } from 'lucide-react';
 import { gameApi, type Game } from '@/lib/api';
+import { getErrorMessage } from '@/lib/api-status';
 import { useAuthStore } from '@/store/auth';
 import { useAppStore } from '@/store/app';
 import { toast } from 'sonner';
@@ -31,6 +33,7 @@ export default function GameCard({ game }: GameCardProps) {
   const [launching, setLaunching] = useState(false);
   const [isFavorite, setIsFavorite] = useState(!!game.is_favorite);
   const isLoggedIn = useAuthStore(s => s.isLoggedIn);
+  const router = useRouter();
 
   const isValidGameUrl = (url: string): boolean => {
     try {
@@ -57,7 +60,7 @@ export default function GameCard({ game }: GameCardProps) {
       // instead of opening an external vendor URL.
       if (data?.game_type === 'self' && data?.launch_url) {
         // Use Next.js router for internal navigation
-        window.location.href = data.launch_url;
+        router.push(data.launch_url);
       } else if (gameUrl && isValidGameUrl(gameUrl)) {
         // Vendor games: open in new tab
         window.open(gameUrl, '_blank');
@@ -66,6 +69,7 @@ export default function GameCard({ game }: GameCardProps) {
       }
     } catch (err) {
       console.error('[GameCard] launch error:', err);
+      toast.error(getErrorMessage(err));
     } finally {
       setLaunching(false);
     }
@@ -81,8 +85,8 @@ export default function GameCard({ game }: GameCardProps) {
       const res = await gameApi.toggleFavorite(game.id);
       setIsFavorite(res.data.is_favorite);
       toast.success(res.data.is_favorite ? 'Added to favorites' : 'Removed from favorites');
-    } catch {
-      toast.error('Failed to update favorite');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     }
   };
 

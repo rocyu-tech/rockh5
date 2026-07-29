@@ -7,6 +7,7 @@ import { useAppStore } from '@/store/app';
 import { Button } from '@/components/ui/button';
 import { taskApi, TaskTypeState, TaskItem } from '@/lib/api';
 import { toast } from 'sonner';
+import { getErrorMessage } from "@/lib/api-status";
 
 const isValidUrl = (url: string): boolean => {
   try {
@@ -33,8 +34,8 @@ export default function TasksPage() {
     try {
       const res = await taskApi.getTaskConfig();
       setTaskStates(res);
-    } catch {
-      toast.error('Failed to load tasks');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -48,8 +49,8 @@ export default function TasksPage() {
       const res = await taskApi.claimReward(taskId);
       toast.success(`Received: ${res.data.item_name} x${res.data.quantity}`);
       await fetchTasks();
-    } catch {
-      toast.error('Claim failed');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setClaimingId(null);
     }
@@ -60,8 +61,8 @@ export default function TasksPage() {
       const res = await taskApi.claimAllRewards(taskType);
       toast.success(`Claimed ${res.data.count} rewards!`);
       await fetchTasks();
-    } catch {
-      toast.error('Claim all failed');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     }
   };
 

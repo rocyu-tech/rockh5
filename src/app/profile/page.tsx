@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useAppStore } from '@/store/app';
-import { useApiStatusContext } from '@/lib/api-status';
+import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
 import Navbar from '@/components/Navbar';
 import VIPSection from '@/components/VIPSection';
 import {
@@ -91,7 +91,8 @@ export default function ProfilePage() {
       const res = await shopApi.getOrders(params as { page?: number; page_size?: number });
       const { orders } = res.data;
       setTransactions(orders);
-    } catch {
+    } catch (err) {
+      toast.error(getErrorMessage(err));
       setTransactions([]);
     } finally {
       setTxLoading(false);
@@ -121,8 +122,8 @@ export default function ProfilePage() {
       const res = await accountApi.uploadAvatar(file);
       toast.success('Avatar updated!');
       await fetchProfile();
-    } catch {
-      toast.error('Upload failed');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setUploadingAvatar(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -153,8 +154,8 @@ export default function ProfilePage() {
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch {
-      toast.error('Change failed');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setChangingPassword(false);
     }
@@ -170,8 +171,8 @@ export default function ProfilePage() {
       toast.success('Profile updated!');
       setShowEditProfile(false);
       await fetchProfile();
-    } catch {
-      toast.error('Update failed');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setSavingProfile(false);
     }
@@ -184,8 +185,8 @@ export default function ProfilePage() {
       toast.success('Account deleted');
       logout();
       router.push('/');
-    } catch {
-      toast.error('Delete failed');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setDeleting(false);
       setShowDeleteAccount(false);

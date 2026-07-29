@@ -300,13 +300,13 @@ export interface Activity {
 // Auth
 export const authApi = {
   login: (email: string, password: string) =>
-    api.post<{ access_token: string; refresh_token: string }>("/auth/login", { email, password }),
+    api.post<{ user_id: number; email: string; nickname: string; avatar: string }>("/auth/login", { email, password }),
 
   register: (data: { email: string; password: string; confirm_password: string; phone?: string }) =>
-    api.post<{ access_token: string; refresh_token: string }>("/auth/register", data),
+    api.post<{ user_id: number; email: string; nickname: string }>("/auth/register", data),
 
   refresh: (refreshToken: string) =>
-    api.post<{ access_token: string; refresh_token: string }>("/auth/refresh", { refresh_token: refreshToken }),
+    api.post<{ access_token: string; token_type: string; expires_in: number }>("/auth/refresh", { refresh_token: refreshToken }),
 
   logout: () => api.post<{ result: string }>("/auth/logout"),
 
@@ -469,6 +469,9 @@ export const shopApi = {
   // Withdraw password
   setWithdrawPassword: (data: { old_pwd?: string; new_pwd: string }) =>
     api.post<{ result: string }>("/shop/withdraw-password", data),
+
+  // Withdraw amount preset options
+  getWithdrawAmountOptions: () => api.get<{ amounts: number[] }>("/shop/withdraw-amount-options"),
 };
 
 export interface ItemDefine {

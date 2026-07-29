@@ -6,6 +6,7 @@ import { useAppStore } from '@/store/app';
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import { itemApi, InventoryItem } from '@/lib/api';
+import { getErrorMessage } from '@/lib/api-status';
 import { Package, RefreshCw, Loader2, Zap, Clock, Shield } from 'lucide-react';
 
 const TYPE_CONFIG: Record<number, { label: string; color: string; icon: React.ElementType; bg: string }> = {
@@ -48,7 +49,8 @@ export default function InventoryPage() {
       } else {
         setItems([]);
       }
-    } catch {
+    } catch (err) {
+      toast.error(getErrorMessage(err));
       setItems([]);
     }
   }, []);

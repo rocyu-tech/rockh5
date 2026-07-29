@@ -64,7 +64,7 @@ export function useApiStatus() {
 
         const friendlyName = endpointToFriendly(endpoint);
         toast.error(`${friendlyName} unavailable`, {
-          description: errorMessage || 'The server is not responding. Showing demo data.',
+          description: errorMessage || 'The server is not responding. Please try again later.',
           duration: 5000,
         });
       }

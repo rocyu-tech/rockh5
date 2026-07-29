@@ -15,6 +15,7 @@ import { ArrowLeft, Crown, Sparkles, CheckCircle2, Loader2, Coins, TrendingUp, G
 import { useTranslations } from 'next-intl';
 import { useLocale } from '@/i18n/provider';
 import { vipApi, activityApi } from '@/lib/api';
+import { getErrorMessage } from '@/lib/api-status';
 import { useAuthStore } from '@/store/auth';
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
@@ -93,6 +94,7 @@ export default function VIPPage() {
         }
       } catch (err) {
         console.error('[vip] load failed:', err);
+        toast.error(getErrorMessage(err));
         // Keep DEMO_LEVELS as fallback
       } finally {
         if (!cancelled) setLoading(false);

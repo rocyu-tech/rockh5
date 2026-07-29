@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { shopApi, type Order } from '@/lib/api';
+import { getErrorMessage } from "@/lib/api-status";
+import { toast } from "sonner";
 import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
 import {
   TrendingUp,
@@ -62,6 +64,7 @@ export default function TransactionHistory({ open, onOpenChange }: TransactionHi
       setTotalPages(Math.max(1, Math.ceil(total / pageSize)));
     } catch (err) {
       console.error('[TransactionHistory] fetch error:', err);
+      toast.error(getErrorMessage(err));
       setTransactions([]);
     } finally {
       setLoading(false);
@@ -98,6 +101,7 @@ export default function TransactionHistory({ open, onOpenChange }: TransactionHi
         hour: '2-digit', minute: '2-digit',
       });
     } catch {
+      console.warn('date formatting failed');
       return dateStr;
     }
   };

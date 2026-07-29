@@ -7,6 +7,7 @@ import { useAppStore } from '@/store/app';
 import { Button } from '@/components/ui/button';
 import { mailApi, MailItem } from '@/lib/api';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/api-status';
 
 export default function MailPage() {
   const [mails, setMails] = useState<MailItem[]>([]);
@@ -22,8 +23,8 @@ export default function MailPage() {
       const data = res.data as Record<string, unknown> | undefined;
       const list = data?.mails || data?.list;
       setMails(Array.isArray(list) ? list : []);
-    } catch {
-      toast.error('Failed to load mails');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -43,7 +44,7 @@ export default function MailPage() {
         setMails(prev => prev.map(m =>
           m.mail_id === mail.mail_id ? { ...m, read_flag: 1 } : m
         ));
-      } catch { console.warn('[mail] mark read failed'); }
+      } catch (err) { console.warn('[mail] mark read failed:', err); }
     }
   };
 
@@ -53,8 +54,8 @@ export default function MailPage() {
       await mailApi.claimMailAttachment(mailId);
       toast.success('Attachments claimed!');
       await fetchMails();
-    } catch {
-      toast.error('Claim failed');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setClaimingId(null);
     }
@@ -66,8 +67,8 @@ export default function MailPage() {
       toast.success(`Deleted ${ids.length} mail(s)`);
       setSelectedIds(new Set());
       await fetchMails();
-    } catch {
-      toast.error('Delete failed');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     }
   };
 

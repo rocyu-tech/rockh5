@@ -14,6 +14,7 @@
 
 import { useState } from 'react';
 import { Shield, Clock, TrendingDown, Phone, AlertTriangle, ExternalLink } from 'lucide-react';
+import { getErrorMessage } from '@/lib/api-status';
 
 const SELF_EXCLUSION_OPTIONS = [
   { value: '24h', label: '24 hours', desc: 'Take a short break' },
@@ -52,8 +53,8 @@ export default function ResponsibleGamingPage() {
         text: `Self-exclusion request received (${selfExclusion}). Once the backend endpoint is wired, you will be blocked from playing and depositing until the period ends.`,
       });
       setSelfExclusion('');
-    } catch {
-      setMessage({ type: 'error', text: 'Failed to submit self-exclusion request.' });
+    } catch (err) {
+      setMessage({ type: 'error', text: getErrorMessage(err) });
     } finally {
       setSubmitting(false);
     }
@@ -73,8 +74,8 @@ export default function ResponsibleGamingPage() {
         text: `Daily deposit limit set to $${amount.toFixed(2)}. Once backend endpoint is wired, deposits exceeding this will be blocked.`,
       });
       setDailyLimit('');
-    } catch {
-      setMessage({ type: 'error', text: 'Failed to set deposit limit.' });
+    } catch (err) {
+      setMessage({ type: 'error', text: getErrorMessage(err) });
     } finally {
       setSubmitting(false);
     }

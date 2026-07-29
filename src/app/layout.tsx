@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import BottomNav from "@/components/BottomNav";
 import AppProvider from "@/components/AppProvider";
 import AgeGate from "@/components/AgeGate";
@@ -63,6 +64,7 @@ export default function RootLayout({
           </AppProvider>
         </I18nProvider>
         <Toaster />
+        <SonnerToaster />
       </body>
     </html>
   );

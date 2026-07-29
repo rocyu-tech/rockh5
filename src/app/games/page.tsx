@@ -7,6 +7,8 @@ import GameCategories from '@/components/GameCategories';
 import GameGrid from '@/components/GameGrid';
 import GameCard from '@/components/GameCard';
 import { gameApi, Game } from '@/lib/api';
+import { getErrorMessage } from '@/lib/api-status';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth';
 import { useAppStore } from '@/store/app';
 
@@ -22,7 +24,7 @@ export default function GamesPage() {
     try {
       const res = await gameApi.getRecentGames();
       setRecentGames(res.data?.list || []);
-    } catch { console.warn('[games] fetch recent failed'); }
+    } catch (err) { console.warn('[games] fetch recent failed:', err); toast.error(getErrorMessage(err)); }
     finally { setLoadingRecent(false); }
   }, [isLoggedIn]);
 

@@ -1,20 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { lobbyApi, type Category } from '@/lib/api';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
 
-const defaultCategories: Category[] = [
-  { id: 0, name: 'All Games', sort_order: 0 },
-  { id: 1, name: 'Slots', sort_order: 1 },
-  { id: 2, name: 'Live Casino', sort_order: 2 },
-  { id: 3, name: 'Sports', sort_order: 3 },
-  { id: 4, name: 'Fishing', sort_order: 4 },
-  { id: 5, name: 'Table Games', sort_order: 5 },
-  { id: 6, name: 'Crash', sort_order: 6 },
-  { id: 7, name: 'Poker', sort_order: 7 },
-  { id: 8, name: 'Lottery', sort_order: 8 },
-];
+// Synthetic UI convention — always prepended, never from backend.
+const ALL_GAMES: Category = { id: 0, name: 'All Games', sort_order: 0 };
 
 const categoryIcons: Record<string, string> = {
   'All Games': '🎰',
@@ -34,19 +25,71 @@ interface GameCategoriesProps {
 }
 
 export default function GameCategories({ activeCategory, onCategoryChange }: GameCategoriesProps) {
-  const [categories, setCategories] = useState<Category[]>(defaultCategories);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const apiStatus = useApiStatusContext();
 
-  useEffect(() => {
+  const loadCategories = useCallback(() => {
+    setLoading(true);
+    setError(null);
     lobbyApi.getCategories().then((res) => {
       const list = res.data?.categories;
       if (list?.length) {
-        setCategories([{ id: 0, name: 'All Games', sort_order: 0 }, ...list]);
+        setCategories([ALL_GAMES, ...list]);
       }
+      apiStatus.markSuccess('lobby/categories');
     }).catch((err) => {
+      setError(getErrorMessage(err));
       apiStatus.markFailed('lobby/categories', getErrorMessage(err));
+    }).finally(() => setLoading(false));
+  }, [apiStatus]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    lobbyApi.getCategories().then((res) => {
+      if (cancelled) return;
+      const list = res.data?.categories;
+      if (list?.length) setCategories([ALL_GAMES, ...list]);
+      apiStatus.markSuccess('lobby/categories');
+    }).catch((err) => {
+      if (cancelled) return;
+      setError(getErrorMessage(err));
+      apiStatus.markFailed('lobby/categories', getErrorMessage(err));
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
     });
-  }, []);
+    return () => { cancelled = true; };
+  }, [apiStatus]);
+
+  // Loading state — skeleton, no fake data
+  if (loading) {
+    return (
+      <div className="w-full">
+        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-2 px-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-10 w-24 rounded-xl bg-[#1a1a2e]/80 animate-pulse shrink-0" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Error state — explicit message + retry, no silent fallback
+  if (error) {
+    return (
+      <div className="w-full px-2 pb-2">
+        <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-2.5 text-sm text-red-300">
+          <span>⚠</span>
+          <span className="flex-1">Categories unavailable — {error}</span>
+          <button onClick={loadCategories} className="text-xs underline hover:text-red-200">
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">

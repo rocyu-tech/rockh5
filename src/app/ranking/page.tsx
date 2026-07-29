@@ -5,6 +5,7 @@ import { Trophy, Medal, Crown, TrendingUp, Loader2, AlertCircle } from 'lucide-r
 import Navbar from '@/components/Navbar';
 import { useAppStore } from '@/store/app';
 import { rankApi, RankItem } from '@/lib/api';
+import { getErrorMessage } from '@/lib/api-status';
 import { toast } from 'sonner';
 
 const RANK_TYPES = [
@@ -35,8 +36,8 @@ export default function RankingPage() {
       ]);
       setRankList(listRes.data?.rank_list || []);
       setMyRank(myRes.data?.my_rank || null);
-    } catch {
-      toast.error('Failed to load rankings');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

@@ -7,6 +7,7 @@ import { useAppStore } from '@/store/app';
 import { Button } from '@/components/ui/button';
 import { agentApi, AgentInfo, SubordinateItem, CommissionSummary, CommissionRecord } from '@/lib/api';
 import { toast } from 'sonner';
+import { getErrorMessage } from "@/lib/api-status";
 
 export default function AgentPage() {
   const [agentInfo, setAgentInfo] = useState<AgentInfo | null>(null);
@@ -30,8 +31,8 @@ export default function AgentPage() {
       setCommissionSummary(summaryRes.data);
       setSubordinates(subsRes.data?.list || []);
       setRecords(recordsRes.data?.list || []);
-    } catch {
-      toast.error('Failed to load agent data');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -49,8 +50,8 @@ export default function AgentPage() {
       const res = await agentApi.getPromoLink();
       setAgentInfo(prev => prev ? { ...prev, referral_link: res.data.referral_link, referral_code: res.data.referral_code } : prev);
       toast.success('Promo link generated!');
-    } catch {
-      toast.error('Failed to generate link');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setGeneratingLink(false);
     }
@@ -69,8 +70,8 @@ export default function AgentPage() {
       await agentApi.requestSettlement();
       toast.success('Settlement requested!');
       await fetchData();
-    } catch {
-      toast.error('Settlement failed');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setSettling(false);
     }

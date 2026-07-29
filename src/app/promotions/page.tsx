@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/auth';
 import { useAppStore } from '@/store/app';
 import { activityApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/api-status';
 
 export default function PromotionsPage() {
   const { isLoggedIn } = useAuthStore();
@@ -21,12 +22,12 @@ export default function PromotionsPage() {
     if (!isLoggedIn) return;
     try {
       const [checkInRes, giftRes] = await Promise.all([
-        activityApi.getCheckInState().catch(() => null),
-        activityApi.getTimedGiftStatus().catch(() => null),
+        activityApi.getCheckInState().catch((err) => { toast.error(getErrorMessage(err)); return null; }),
+        activityApi.getTimedGiftStatus().catch((err) => { toast.error(getErrorMessage(err)); return null; }),
       ]);
       if (checkInRes) setCheckInState(checkInRes.data);
       if (giftRes) setTimedGift(giftRes.data);
-    } catch { console.warn('[promotions] fetch states failed'); }
+    } catch (err) { console.warn('[promotions] fetch states failed:', err); toast.error(getErrorMessage(err)); }
   }, [isLoggedIn]);
 
   useEffect(() => { fetchStates(); }, [fetchStates]);
@@ -41,8 +42,8 @@ export default function PromotionsPage() {
       const res = await activityApi.checkIn();
       toast.success(`Checked in! +${res.data.bonus_amount} bonus (${res.data.consecutive_days} day streak)`);
       await fetchStates();
-    } catch {
-      toast.error('Check-in failed');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setCheckingIn(false);
     }
@@ -58,8 +59,8 @@ export default function PromotionsPage() {
       const res = await activityApi.claimTimedGift();
       toast.success(`Received: ${res.data.item_name} x${res.data.quantity}!`);
       await fetchStates();
-    } catch {
-      toast.error('Claim failed');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setClaimingGift(false);
     }

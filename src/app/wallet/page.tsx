@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
-import { shopApi, type Channel, type PaymentAccount, api } from '@/lib/api';
+import { shopApi, type Channel, type PaymentAccount } from '@/lib/api';
 import Navbar from '@/components/Navbar';
 import {
   Wallet, CreditCard, Building, Smartphone, Zap,
@@ -284,7 +284,10 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
     setLoading(true);
     Promise.all([
       shopApi.getWithdrawChannels(),
-      api.get<{ amounts: number[] }>('/shop/withdraw-amount-options').catch(() => ({ data: { amounts: [] } })),
+      shopApi.getWithdrawAmountOptions().catch((err) => {
+        toast.error(getErrorMessage(err));
+        return { data: { amounts: [] } };
+      }),
     ]).then(([channelsRes, amountsRes]) => {
       const { channels: list } = channelsRes.data;
       setChannels(list);
@@ -293,7 +296,8 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
       if (amounts && amounts.length > 0) {
         setPresetAmounts(amounts);
       }
-    }).catch(() => {
+    }).catch((err) => {
+      toast.error(getErrorMessage(err));
       setChannels([]);
       setSelectedChannel(null);
     }).finally(() => setLoading(false));
@@ -689,7 +693,7 @@ function SettingsTab() {
     shopApi.getPaymentAccounts().then((res) => {
       const { accounts: list } = res.data;
       setPaymentAccounts(list);
-    }).catch(() => {}).finally(() => setLoadingAccounts(false));
+    }).catch((err) => { toast.error(getErrorMessage(err)); }).finally(() => setLoadingAccounts(false));
   }, []);
 
   const handleAddAccount = async () => {
@@ -712,8 +716,8 @@ function SettingsTab() {
       // Refresh list
       const listRes = await shopApi.getPaymentAccounts();
       setPaymentAccounts(listRes.data.accounts);
-    } catch {
-      toast.error('Failed to add account');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setSavingAccount(false);
     }
@@ -739,8 +743,8 @@ function SettingsTab() {
       setOldPwd('');
       setNewPwd('');
       setConfirmPwd('');
-    } catch {
-      toast.error('Failed to update password');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setChangingPwd(false);
     }
