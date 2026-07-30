@@ -64,6 +64,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       <IntlProvider
         locale={locale}
         messages={messages[locale]}
+        timeZone="UTC"
         getMessageFallback={(info) => {
           // During SSR (before this provider hydrates with the chosen locale),
           // next-intl can throw MISSING_MESSAGE. Return the key as a fallback
@@ -76,6 +77,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
           // (provider hasn't hydrated yet) and the fallback above handles
           // the visual gap.
           if (err.code === 'MISSING_MESSAGE') return;
+          if (err.code === 'ENVIRONMENT_FALLBACK') return;
           console.error('[i18n]', err);
         }}
       >
