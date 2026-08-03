@@ -42,6 +42,8 @@ export class GameWSClient {
   private onOpenCb?: () => void;
   private onCloseCb?: () => void;
   private onErrorCb?: (err: Event) => void;
+  // Room tracking: stored on room_ready, sent with every message for reconnect routing.
+  private _roomId: number | null = null;
 
   constructor(opts: WSOptions) {
     this.url = opts.url;
@@ -62,7 +64,12 @@ export class GameWSClient {
       const fresh = localStorage.getItem('rockgame_token');
       if (fresh) this.token = fresh;
     }
-    const wsUrl = `${this.url}?token=${encodeURIComponent(this.token)}`;
+    // Append room_id for reconnect routing — server uses this to route
+    // the connection to the correct game node.
+    let wsUrl = `${this.url}?token=${encodeURIComponent(this.token)}`;
+    if (this._roomId !== null) {
+      wsUrl += `&room_id=${this._roomId}`;
+    }
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
@@ -82,6 +89,10 @@ export class GameWSClient {
     this.ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
+        // Track room_id from server (room_ready / reconnect_ack pushes).
+        if (msg.room_id && msg.room_id > 0) {
+          this._roomId = msg.room_id;
+        }
         // Handle response to a request
         if (msg.req_id && this.pendingRequests.has(msg.req_id)) {
           const req = this.pendingRequests.get(msg.req_id)!;
@@ -133,8 +144,9 @@ export class GameWSClient {
     return new Promise((resolve, reject) => {
       const reqId = `req_${++this.reqIdCounter}_${Date.now()}`;
       this.pendingRequests.set(reqId, { resolve, reject });
-      const msg = JSON.stringify({ action, data, req_id: reqId });
-      this.sendRaw(msg);
+      const payload: Record<string, unknown> = { action, data, req_id: reqId };
+      if (this._roomId !== null) payload.room_id = this._roomId;
+      this.sendRaw(JSON.stringify(payload));
       // Timeout after 10s
       setTimeout(() => {
         if (this.pendingRequests.has(reqId)) {
@@ -147,8 +159,9 @@ export class GameWSClient {
 
   // Send a fire-and-forget message (no response expected)
   send(action: string, data?: unknown) {
-    const msg = JSON.stringify({ action, data });
-    this.sendRaw(msg);
+    const payload: Record<string, unknown> = { action, data };
+    if (this._roomId !== null) payload.room_id = this._roomId;
+    this.sendRaw(JSON.stringify(payload));
   }
 
   private sendRaw(msg: string) {
@@ -180,6 +193,15 @@ export class GameWSClient {
 
   get isConnected() {
     return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  get roomId() {
+    return this._roomId;
+  }
+
+  // Called by game logic when room is joined / reconnected.
+  setRoomId(id: number | null) {
+    this._roomId = id;
   }
 
   // Refresh the token used for WebSocket auth.
