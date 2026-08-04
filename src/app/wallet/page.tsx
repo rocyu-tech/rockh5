@@ -55,7 +55,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
   const [payUrl, setPayUrl] = useState('');
   const [orderNo, setOrderNo] = useState('');
   const [error, setError] = useState('');
-  const [presetAmounts, setPresetAmounts] = useState<number[]>(DEPOSIT_PRESET_AMOUNTS);
+  const [presetAmounts, setPresetAmounts] = useState<number[]>(DEFAULT_PRESET_AMOUNTS);
 
   useEffect(() => {
     setLoading(true);
