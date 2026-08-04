@@ -61,7 +61,26 @@ function normalizeKeys(obj: unknown): unknown {
   }
   return out;
 }
+// ── Unified response unwrapper ──────────────────────────────────────────
+// All backend responses now follow {code, message, data}.
+// This interceptor extracts `data` on success (code===0) and rejects
+// on error (code!==0), so callers receive the actual payload directly.
 api.interceptors.response.use((response) => {
+  const body = response.data;
+  if (body && typeof body === 'object' && 'code' in body && 'data' in body) {
+    if (body.code === 0 || body.code === '0') {
+      // Success — unwrap: {code, message, data} → data
+      response.data = body.data ?? {};
+    } else {
+      // Business error — reject with code + message
+      const err = Object.assign(new Error(body.message || 'request failed'), {
+        response: response,
+        code: body.code,
+      });
+      return Promise.reject(err);
+    }
+  }
+  // Apply camelCase → snake_case normalization to the unwrapped data
   if (response.data && typeof response.data === 'object') {
     response.data = normalizeKeys(response.data);
   }
