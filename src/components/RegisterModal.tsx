@@ -20,7 +20,23 @@ interface RegisterModalProps {
   switchToLogin: () => void;
 }
 
+const COUNTRY_CODES = [
+  { code: '+63', label: '+63' },
+  { code: '+86', label: '+86' },
+  { code: '+1', label: '+1' },
+  { code: '+44', label: '+44' },
+  { code: '+81', label: '+81' },
+  { code: '+82', label: '+82' },
+  { code: '+66', label: '+66' },
+  { code: '+84', label: '+84' },
+  { code: '+91', label: '+91' },
+  { code: '+62', label: '+62' },
+  { code: '+60', label: '+60' },
+  { code: '+855', label: '+855' },
+];
+
 export default function RegisterModal({ open, onOpenChange, switchToLogin }: RegisterModalProps) {
+  const [countryCode, setCountryCode] = useState('+63');
   const [phone, setPhone] = useState('');
   const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
@@ -59,7 +75,7 @@ export default function RegisterModal({ open, onOpenChange, switchToLogin }: Reg
     }
 
     const success = await register({
-      phone,
+      phone: `${countryCode}${phone}`,
       nickname,
       password,
       confirm_password: confirmPassword,
@@ -93,16 +109,29 @@ export default function RegisterModal({ open, onOpenChange, switchToLogin }: Reg
             <Label htmlFor="reg-phone" className="text-[#8892b0] text-sm">
               Phone Number <span className="text-[#e94560]">*</span>
             </Label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8892b0]" />
-              <Input
-                id="reg-phone"
-                type="tel"
-                placeholder="Enter your phone number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                className="pl-10 pr-4 bg-[#16213e] border-[#f5a623]/20 placeholder-[#8892b0]/50 focus:border-[#f5a623]/50"
-              />
+            <div className="flex gap-2">
+              <select
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+                className="w-24 shrink-0 rounded-lg bg-[#16213e] border-[#f5a623]/20 text-[#ccd6f6] text-sm px-2 py-2.5 focus:outline-none focus:border-[#f5a623]/50 appearance-none text-center cursor-pointer"
+              >
+                {COUNTRY_CODES.map((c) => (
+                  <option key={c.code} value={c.code} className="bg-[#16213e] text-[#ccd6f6]">
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <div className="relative flex-1">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8892b0]" />
+                <Input
+                  id="reg-phone"
+                  type="tel"
+                  placeholder="Enter your phone number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                  className="pl-10 pr-4 bg-[#16213e] border-[#f5a623]/20 placeholder-[#8892b0]/50 focus:border-[#f5a623]/50"
+                />
+              </div>
             </div>
           </div>
 
