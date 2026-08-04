@@ -10,7 +10,7 @@ import { getErrorMessage } from "@/lib/api-status";
 //
 // flow:
 //   1. Backend /auth/login sets httpOnly access_token + refresh_token cookies
-//   2. Response body is wrapped in SuccessResponse { code, message, data: { access_token } }
+//   2. Response body returns the JWT directly in `access_token` (no wrapper)
 //   3. syncTokenCookie() writes a non-httpOnly mirror cookie for the middleware
 //   4. On page refresh, middleware reads the mirror cookie → allows access
 //   5. forceLogout() in api.ts clears the mirror cookie
@@ -71,9 +71,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await authApi.login(email, password);
       // Backend sets httpOnly cookies. Also sync mirror cookie for middleware.
-      // Response is wrapped: { code, message, data: { access_token, ... } }
-      const payload = (res.data as Record<string, unknown>)?.data as { access_token?: string } | undefined;
-      syncTokenCookie(payload?.access_token || null);
+      syncTokenCookie(res.data?.access_token || null);
       set({
         isLoggedIn: true,
         isLoading: false,
@@ -92,9 +90,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await authApi.register(data);
       // Backend sets httpOnly cookies. Also sync mirror cookie for middleware.
-      const payload = (res.data as Record<string, unknown>)?.data as { access_token?: string; user_id?: number } | undefined;
-      syncTokenCookie(payload?.access_token || null);
-      if (payload?.user_id) {
+      syncTokenCookie(res.data?.access_token || null);
+      if (res.data?.user_id) {
         set({
           isLoggedIn: true,
           isLoading: false,
