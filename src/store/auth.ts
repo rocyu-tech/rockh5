@@ -3,11 +3,29 @@ import { authApi, accountApi, mailApi } from "@/lib/api";
 import type { UserProfile, UserAssets } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api-status";
 
-// Auth is now entirely httpOnly cookie based.
-// No localStorage token storage. No client-side token in memory.
-// The middleware cookie (access_token) is only needed for Next.js route guards
-// and is set/cleared by api.ts forceLogout. We no longer need syncTokenCookie
-// here because the backend /auth/login response sets the httpOnly cookie directly.
+// Auth uses httpOnly cookies for actual auth (set by backend).
+// A non-httpOnly mirror cookie (access_token) is also set client-side so that
+// Next.js middleware can gate routes server-side. The mirror cookie has the
+// same JWT value and matching MaxAge.
+//
+// flow:
+//   1. Backend /auth/login sets httpOnly access_token + refresh_token cookies
+//   2. Response body also returns the JWT in `access_token`
+//   3. syncTokenCookie() writes a non-httpOnly mirror cookie for the middleware
+//   4. On page refresh, middleware reads the mirror cookie → allows access
+//   5. forceLogout() in api.ts clears the mirror cookie
+
+/** Set or clear the non-httpOnly mirror cookie for Next.js middleware. */
+function syncTokenCookie(token: string | null) {
+  if (typeof document === "undefined") return;
+  if (token) {
+    // Mirror the backend's MaxAge (AccessTTL in minutes → seconds).
+    // Default 24h if we don't know the exact TTL.
+    document.cookie = `access_token=${token}; path=/; max-age=86400; samesite=lax`;
+  } else {
+    document.cookie = "access_token=; path=/; max-age=0";
+  }
+}
 
 interface AuthState {
   user: UserProfile | null;
@@ -38,6 +56,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // from client-side JS. Instead, we try to fetch the profile — if it
     // succeeds (cookie is valid), we're logged in. If it 401s, the axios
     // interceptor handles forceLogout and opens the login modal.
+    //
+    // Also ensure the middleware mirror cookie exists. If the user has a
+    // valid httpOnly cookie but the mirror was lost (e.g. cookie overflow),
+    // fetchProfile will succeed and we can re-sync from the response.
     if (typeof window !== "undefined") {
       get().fetchProfile();
       get().fetchAssets();
@@ -49,7 +71,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await authApi.login(email, password);
       // Backend sets httpOnly cookies on the login response.
-      // No client-side token storage needed.
+      // Also sync a non-httpOnly mirror cookie for Next.js middleware.
+      const token = res.data?.access_token;
+      syncTokenCookie(token || null);
       set({
         isLoggedIn: true,
         isLoading: false,
@@ -68,7 +92,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await authApi.register(data);
       // Backend sets httpOnly cookies on register response.
-      // Token is NOT in the response body (httpOnly means XSS can't read it).
+      // Also sync a non-httpOnly mirror cookie for Next.js middleware.
+      const token = res.data?.access_token;
+      syncTokenCookie(token || null);
       if (res.data?.user_id) {
         set({
           isLoggedIn: true,
@@ -96,6 +122,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Best-effort: still clear local state even if logout API fails
       console.warn('[auth] logout API call failed:', err);
     }
+    syncTokenCookie(null);
     set({
       user: null,
       assets: null,

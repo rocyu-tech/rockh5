@@ -300,10 +300,10 @@ export interface Activity {
 // Auth
 export const authApi = {
   login: (email: string, password: string) =>
-    api.post<{ user_id: number; email: string; nickname: string; avatar: string }>("/auth/login", { email, password }),
+    api.post<{ user_id: number; email: string; nickname: string; avatar: string; access_token: string; token_type: string; expires_in: number }>("/auth/login", { email, password }),
 
   register: (data: { email: string; password: string; confirm_password: string; phone?: string }) =>
-    api.post<{ user_id: number; email: string; nickname: string }>("/auth/register", data),
+    api.post<{ user_id: number; email: string; nickname: string; access_token: string; token_type: string; expires_in: number }>("/auth/register", data),
 
   refresh: (refreshToken: string) =>
     api.post<{ access_token: string; token_type: string; expires_in: number }>("/auth/refresh", { refresh_token: refreshToken }),
