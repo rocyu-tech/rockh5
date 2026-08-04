@@ -12,7 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, Loader2, Mail, Lock, UserPlus, Phone, User } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Phone, Lock, UserPlus, User } from 'lucide-react';
 
 interface RegisterModalProps {
   open: boolean;
@@ -21,10 +21,10 @@ interface RegisterModalProps {
 }
 
 export default function RegisterModal({ open, onOpenChange, switchToLogin }: RegisterModalProps) {
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const { register, isLoading, lastError } = useAuthStore();
@@ -33,8 +33,13 @@ export default function RegisterModal({ open, onOpenChange, switchToLogin }: Reg
     e.preventDefault();
     setError('');
 
-    if (!email || !password || !confirmPassword) {
+    if (!phone || !password || !confirmPassword || !nickname) {
       setError('Please fill in all required fields');
+      return;
+    }
+
+    if (!/^\d{7,15}$/.test(phone)) {
+      setError('Please enter a valid phone number (7-15 digits)');
       return;
     }
 
@@ -54,18 +59,18 @@ export default function RegisterModal({ open, onOpenChange, switchToLogin }: Reg
     }
 
     const success = await register({
-      email,
+      phone,
+      nickname,
       password,
       confirm_password: confirmPassword,
-      phone: phone || undefined,
     });
 
     if (success) {
       onOpenChange(false);
-      setEmail('');
+      setPhone('');
+      setNickname('');
       setPassword('');
       setConfirmPassword('');
-      setPhone('');
       setError('');
     } else {
       setError(lastError || 'Registration failed. Please try again.');
@@ -83,37 +88,37 @@ export default function RegisterModal({ open, onOpenChange, switchToLogin }: Reg
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          {/* Email */}
-          <div className="space-y-2">
-            <Label htmlFor="reg-email" className="text-[#8892b0] text-sm">
-              Email <span className="text-[#e94560]">*</span>
-            </Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8892b0]" />
-              <Input
-                id="reg-email"
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-10 pr-4 bg-[#16213e] border-[#f5a623]/20 placeholder-[#8892b0]/50 focus:border-[#f5a623]/50"
-              />
-            </div>
-          </div>
-
           {/* Phone */}
           <div className="space-y-2">
             <Label htmlFor="reg-phone" className="text-[#8892b0] text-sm">
-              Phone <span className="text-[#8892b0]/50">(optional)</span>
+              Phone Number <span className="text-[#e94560]">*</span>
             </Label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8892b0]" />
               <Input
                 id="reg-phone"
                 type="tel"
-                placeholder="+1234567890"
+                placeholder="Enter your phone number"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                className="pl-10 pr-4 bg-[#16213e] border-[#f5a623]/20 placeholder-[#8892b0]/50 focus:border-[#f5a623]/50"
+              />
+            </div>
+          </div>
+
+          {/* Nickname */}
+          <div className="space-y-2">
+            <Label htmlFor="reg-nickname" className="text-[#8892b0] text-sm">
+              Nickname <span className="text-[#e94560]">*</span>
+            </Label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8892b0]" />
+              <Input
+                id="reg-nickname"
+                type="text"
+                placeholder="Choose a nickname"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
                 className="pl-10 pr-4 bg-[#16213e] border-[#f5a623]/20 placeholder-[#8892b0]/50 focus:border-[#f5a623]/50"
               />
             </div>

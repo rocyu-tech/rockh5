@@ -334,11 +334,11 @@ export interface Activity {
 
 // Auth
 export const authApi = {
-  login: (email: string, password: string) =>
-    api.post<{ user_id: number; email: string; nickname: string; avatar: string; access_token: string; token_type: string; expires_in: number }>("/auth/login", { email, password }),
+  login: (phone: string, password: string) =>
+    api.post<{ user_id: number; phone: string; nickname: string; avatar: string; access_token: string; token_type: string; expires_in: number }>("/auth/login", { phone, password }),
 
-  register: (data: { email: string; password: string; confirm_password: string; phone?: string }) =>
-    api.post<{ user_id: number; email: string; nickname: string; access_token: string; token_type: string; expires_in: number }>("/auth/register", data),
+  register: (data: { phone: string; nickname: string; password: string; confirm_password: string; invite_code?: string }) =>
+    api.post<{ user_id: number; phone: string; nickname: string; access_token: string; token_type: string; expires_in: number }>("/auth/register", data),
 
   refresh: (refreshToken: string) =>
     api.post<{ access_token: string; token_type: string; expires_in: number }>("/auth/refresh", { refresh_token: refreshToken }),
@@ -351,8 +351,8 @@ export const authApi = {
   //      In prod with SMTP wired, it emails a reset link.
   //   2. confirmPasswordReset(token, new_password) → validates token, sets
   //      new password, deletes token, force-logs-out all existing sessions.
-  requestPasswordReset: (email: string) =>
-    api.post<{ message: string }>("/auth/password-reset/request", { email }, { _noAuth: true } as object),
+  requestPasswordReset: (phone: string) =>
+    api.post<{ message: string }>("/auth/password-reset/request", { phone }, { _noAuth: true } as object),
   confirmPasswordReset: (token: string, newPassword: string) =>
     api.post<{ message: string }>("/auth/password-reset/confirm", { token, new_password: newPassword }, { _noAuth: true } as object),
 };

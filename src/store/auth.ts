@@ -34,8 +34,8 @@ interface AuthState {
   isLoading: boolean;
   lastError: string | null;
   unreadMailCount: number;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (data: { email: string; password: string; confirm_password: string; phone?: string }) => Promise<boolean>;
+  login: (phone: string, password: string) => Promise<boolean>;
+  register: (data: { phone: string; nickname: string; password: string; confirm_password: string }) => Promise<boolean>;
   logout: () => void;
   fetchProfile: () => Promise<void>;
   fetchAssets: () => Promise<void>;
@@ -66,12 +66,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  login: async (email: string, password: string) => {
+  login: async (phone: string, password: string) => {
     set({ isLoading: true });
     try {
-      const res = await authApi.login(email, password);
+      const res = await authApi.login(phone, password);
       // Backend sets httpOnly cookies. Also sync mirror cookie for middleware.
-      syncTokenCookie(res.data?.access_token || null);
+      const loginData = res.data?.data || res.data;
+      syncTokenCookie(loginData?.access_token || null);
       set({
         isLoggedIn: true,
         isLoading: false,
@@ -85,13 +86,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  register: async (data) => {
+  register: async (data: { phone: string; nickname: string; password: string; confirm_password: string }) => {
     set({ isLoading: true, lastError: null });
     try {
       const res = await authApi.register(data);
       // Backend sets httpOnly cookies. Also sync mirror cookie for middleware.
-      syncTokenCookie(res.data?.access_token || null);
-      if (res.data?.user_id) {
+      const regData = res.data?.data || res.data;
+      syncTokenCookie(regData?.access_token || null);
+      if (regData?.user_id) {
         set({
           isLoggedIn: true,
           isLoading: false,
@@ -101,7 +103,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else {
         set({ isLoading: false });
       }
-      return true;
     } catch (err) {
       set({ isLoading: false, lastError: getErrorMessage(err) });
       return false;

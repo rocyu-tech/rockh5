@@ -12,7 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, Loader2, Mail, Lock, LogIn } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Phone, Lock, LogIn } from 'lucide-react';
 
 interface LoginModalProps {
   open: boolean;
@@ -21,7 +21,7 @@ interface LoginModalProps {
 }
 
 export default function LoginModal({ open, onOpenChange, switchToRegister }: LoginModalProps) {
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -31,8 +31,13 @@ export default function LoginModal({ open, onOpenChange, switchToRegister }: Log
     e.preventDefault();
     setError('');
 
-    if (!email || !password) {
+    if (!phone || !password) {
       setError('Please fill in all fields');
+      return;
+    }
+
+    if (!/^\d{7,15}$/.test(phone)) {
+      setError('Please enter a valid phone number (7-15 digits)');
       return;
     }
 
@@ -46,14 +51,14 @@ export default function LoginModal({ open, onOpenChange, switchToRegister }: Log
       return;
     }
 
-    const success = await login(email, password);
+    const success = await login(phone, password);
     if (success) {
       onOpenChange(false);
-      setEmail('');
+      setPhone('');
       setPassword('');
       setError('');
     } else {
-      setError(lastError || 'Invalid email or password');
+      setError(lastError || 'Invalid phone number or password');
     }
   };
 
@@ -68,19 +73,19 @@ export default function LoginModal({ open, onOpenChange, switchToRegister }: Log
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          {/* Email */}
+          {/* Phone */}
           <div className="space-y-2">
-            <Label htmlFor="login-email" className="text-[#8892b0] text-sm">
-              Email
+            <Label htmlFor="login-phone" className="text-[#8892b0] text-sm">
+              Phone Number
             </Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8892b0]" />
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8892b0]" />
               <Input
-                id="login-email"
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="login-phone"
+                type="tel"
+                placeholder="Enter your phone number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                 className="pl-10 pr-4 bg-[#16213e] border-[#f5a623]/20 placeholder-[#8892b0]/50 focus:border-[#f5a623]/50"
               />
             </div>

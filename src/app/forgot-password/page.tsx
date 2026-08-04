@@ -2,9 +2,9 @@
 
 // Password reset page — 2-step flow.
 //
-// Step 1 (no ?token= in URL): user enters their email → backend generates
+// Step 1 (no ?token= in URL): user enters their phone → backend generates
 //   a 64-char hex token (15min TTL) and "sends" it (in dev, logged to the
-//   account-node stdout; in prod, emailed as a link to this same page with
+//   account-node stdout; in prod, sent as a link to this same page with
 //   ?token=XXX).
 //
 // Step 2 (?token=XXX in URL): user enters a new password → backend verifies
@@ -17,7 +17,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Mail, Lock, CheckCircle2, AlertCircle, Loader2, KeyRound } from 'lucide-react';
+import { ArrowLeft, Phone, Lock, CheckCircle2, AlertCircle, Loader2, KeyRound } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { useTranslations } from 'next-intl';
 import { useLocale } from '@/i18n/provider';
@@ -30,7 +30,7 @@ function ForgotPasswordInner() {
 
   const tokenFromUrl = searchParams.get('token') || '';
 
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [token, setToken] = useState(tokenFromUrl);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -44,12 +44,12 @@ function ForgotPasswordInner() {
 
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (!phone) return;
     setSubmitting(true);
     setError(null);
     setSuccess(null);
     try {
-      await authApi.requestPasswordReset(email);
+      await authApi.requestPasswordReset(phone);
       setSuccess(t('auth.resetLinkSent'));
     } catch (err) {
       setSuccess(t('auth.resetLinkSent'));
@@ -139,15 +139,15 @@ function ForgotPasswordInner() {
           {!token && (
             <form onSubmit={handleRequest} className="space-y-4">
               <div>
-                <label className="block text-xs text-[#8892b0] mb-1">{t('auth.email')}</label>
+                <label className="block text-xs text-[#8892b0] mb-1">{t('auth.phone')}</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8892b0]" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8892b0]" />
                   <input
-                    type="email"
+                    type="tel"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter your phone number"
                     className={`${inputCls} pl-10`}
                     disabled={submitting}
                   />
@@ -155,7 +155,7 @@ function ForgotPasswordInner() {
               </div>
               <button
                 type="submit"
-                disabled={submitting || !email}
+                disabled={submitting || !phone}
                 className="w-full py-3 rounded-lg bg-[#f5a623] text-black font-bold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
