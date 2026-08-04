@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/store/auth";
 import { useAppStore } from "@/store/app";
+import { toast } from "sonner";
 
 // Auth is handled entirely via httpOnly cookies (set by backend).
 // No localStorage token storage. No Authorization header.
@@ -89,7 +90,11 @@ api.interceptors.response.use((response) => {
       response.data = body.data ?? {};
     } else {
       // Business error — reject with code + message
-      const err = Object.assign(new Error(body.message || 'request failed'), {
+      const msg = body.message || 'request failed';
+      if (typeof window !== 'undefined') {
+        toast.error(msg);
+      }
+      const err = Object.assign(new Error(msg), {
         response: response,
         code: body.code,
       });
@@ -177,6 +182,13 @@ api.interceptors.response.use(
       data?.code === 20006;
 
     if (!isAuthError || originalRequest._retry) {
+      // Show error toast for non-auth errors
+      if (typeof window !== 'undefined' && !isAuthError) {
+        const msg = (error.response?.data as { message?: string })?.message
+          || error.message
+          || 'Network error';
+        toast.error(msg);
+      }
       return Promise.reject(error);
     }
 
@@ -491,7 +503,7 @@ export const shopApi = {
   getWithdrawMethods: () => api.get<{ methods: PaymentMethod[] }>("/shop/withdraw-methods"),
 
   // Create recharge (deposit) order
-  recharge: (data: { channel_id: number; amount: number }) =>
+  recharge: (data: { channel_id: number; product_id?: number; amount?: number }) =>
     api.post<{ order_no: string; amount: number; status: string; pay_url?: string; pay_token?: string; qr_code?: string }>("/shop/recharge", data),
 
   // Create withdraw order
@@ -514,8 +526,8 @@ export const shopApi = {
   // Withdraw amount preset options
   getWithdrawAmountOptions: () => api.get<{ amounts: number[] }>("/shop/withdraw-amount-options"),
 
-  // Deposit amount preset options
-  getDepositAmountOptions: () => api.get<{ amounts: number[] }>("/shop/deposit-amount-options"),
+  // Deposit amount preset options (product-based)
+  getDepositAmountOptions: () => api.get<{ products: { id: number; amount: number }[] }>("/shop/deposit-amount-options"),
 };
 
 export interface ItemDefine {

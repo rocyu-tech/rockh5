@@ -27,8 +27,9 @@ type WithdrawChannel = import('@/lib/api').WithdrawChannel & {
   need_account?: boolean;
 };
 
+type DepositProduct = { id: number; amount: number };
+
 const DEFAULT_PRESET_AMOUNTS = [10, 20, 50, 100, 200, 500, 1000, 2000];
-const DEPOSIT_PRESET_AMOUNTS = [10, 20, 50, 100, 200, 500, 1000, 2000];
 
 const CHANNEL_ICONS: Record<string, typeof CreditCard> = {
   usdt: CreditCard,
@@ -47,6 +48,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<number | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<number | null>(null);
+  const [products, setProducts] = useState<DepositProduct[]>([]);
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -69,12 +71,13 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
           setSelectedChannel(list[0].channels[0].id);
         }
       }
-      const amounts = amountsRes.data?.amounts;
-      if (amounts && amounts.length > 0) {
-        setPresetAmounts(amounts);
+      const prods = amountsRes.data?.products;
+      if (prods && prods.length > 0) {
+        setProducts(prods);
+        setPresetAmounts(prods.map((p) => p.amount));
       }
     }).catch((err) => {
-      apiStatus.markFailed('shop/payment-methods', getErrorMessage(err));
+      apiStatus.markFailed('shop/deposit-amount-options', getErrorMessage(err));
     }).finally(() => setLoading(false));
   }, []);
 
@@ -111,10 +114,16 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
       return;
     }
 
+    // Find matching product_id for the selected amount
+    const matchedProduct = products.find((p) => p.amount === numAmount);
+
     setError('');
     setSubmitting(true);
     try {
-      const res = await shopApi.recharge({ channel_id: selectedChannel, amount: numAmount });
+      const res = await shopApi.recharge({
+        channel_id: selectedChannel,
+        ...(matchedProduct ? { product_id: matchedProduct.id } : { amount: numAmount }),
+      });
       const data = res.data;
       if (data?.pay_url) {
         setPayUrl(data.pay_url);
@@ -235,27 +244,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
         )}
       </div>
 
-      {/* Channels within selected method (if more than 1) */}
-      {currentMethod && currentMethod.channels.length > 1 && (
-        <div className="mb-3">
-          <h3 className="text-xs font-semibold text-[#8892b0] mb-2">Channel</h3>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {currentMethod.channels.map((ch) => (
-              <button
-                key={ch.id}
-                onClick={() => { setSelectedChannel(ch.id); setError(''); }}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all ${
-                  selectedChannel === ch.id
-                    ? 'bg-[#f5a623]/20 text-[#f5a623] border border-[#f5a623]/40'
-                    : 'bg-[#1a1a2e] text-[#8892b0] border border-[#f5a623]/10'
-                }`}
-              >
-                {ch.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Channel auto-selected (hidden from user) */}
 
       {/* Bonus info */}
       {currentMethod && (currentMethod.bonus_type ?? 0) > 0 && (
