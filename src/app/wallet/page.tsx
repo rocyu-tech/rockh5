@@ -61,7 +61,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
     setLoading(true);
     Promise.all([
       shopApi.getPaymentMethods(),
-      shopApi.getDepositAmountOptions().catch(() => ({ data: { amounts: [] } })),
+      shopApi.getDepositAmountOptions().catch(() => ({ data: { products: [] } })),
     ]).then(([methodsRes, amountsRes]) => {
       const list = methodsRes.data?.methods ?? [];
       setMethods(list);
