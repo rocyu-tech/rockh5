@@ -20,6 +20,22 @@ export interface Channel {
 export interface WithdrawChannel extends Channel {
   daily_limit?: number;
 }
+
+// Payment method grouped with its channels (returned by GET /shop/payment-methods)
+export interface PaymentMethod {
+  id: number;
+  name: string;
+  icon: string;
+  scene: string; // "deposit" | "withdraw" | "both"
+  min_amount: number;
+  max_amount: number;
+  sort_order: number;
+  channels: Channel[];
+  bonus_type?: number;
+  bonus_value?: number;
+  first_deposit_bonus_type?: number;
+  first_deposit_bonus_value?: number;
+}
 export interface PaymentAccount {
   id: number;
   bank_name: string;
@@ -465,8 +481,14 @@ export const shopApi = {
   // Payment channels (for deposit)
   getPaymentChannels: () => api.get<{ channels: Channel[] }>("/shop/payment-channels"),
 
+  // Payment methods (grouped with channels, bonus info, VIP/label filtered)
+  getPaymentMethods: () => api.get<{ methods: PaymentMethod[] }>("/shop/payment-methods"),
+
   // Withdraw channels
   getWithdrawChannels: () => api.get<{ channels: WithdrawChannel[] }>("/shop/withdraw-channels"),
+
+  // Withdraw methods (grouped with channels)
+  getWithdrawMethods: () => api.get<{ methods: PaymentMethod[] }>("/shop/withdraw-methods"),
 
   // Create recharge (deposit) order
   recharge: (data: { channel_id: number; amount: number }) =>
@@ -491,6 +513,9 @@ export const shopApi = {
 
   // Withdraw amount preset options
   getWithdrawAmountOptions: () => api.get<{ amounts: number[] }>("/shop/withdraw-amount-options"),
+
+  // Deposit amount preset options
+  getDepositAmountOptions: () => api.get<{ amounts: number[] }>("/shop/deposit-amount-options"),
 };
 
 export interface ItemDefine {

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
-import { shopApi, type Channel, type PaymentAccount } from '@/lib/api';
+import { shopApi, type Channel, type PaymentMethod, type PaymentAccount } from '@/lib/api';
 import Navbar from '@/components/Navbar';
 import {
   Wallet, CreditCard, Building, Smartphone, Zap,
@@ -44,7 +44,8 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
   const { assets, fetchAssets } = useAuthStore();
   const apiStatus = useApiStatusContext();
 
-  const [channels, setChannels] = useState<Channel[]>([]);
+  const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  const [selectedMethod, setSelectedMethod] = useState<number | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<number | null>(null);
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,19 +53,44 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
   const [payUrl, setPayUrl] = useState('');
   const [orderNo, setOrderNo] = useState('');
   const [error, setError] = useState('');
+  const [presetAmounts, setPresetAmounts] = useState<number[]>(DEPOSIT_PRESET_AMOUNTS);
 
   useEffect(() => {
     setLoading(true);
-    shopApi.getPaymentChannels().then((res) => {
-      const { channels: list } = res.data;
-      setChannels(list);
-      if (list.length > 0) setSelectedChannel(list[0].id);
+    Promise.all([
+      shopApi.getPaymentMethods(),
+      shopApi.getDepositAmountOptions().catch(() => ({ data: { amounts: [] } })),
+    ]).then(([methodsRes, amountsRes]) => {
+      const list = methodsRes.data?.methods ?? [];
+      setMethods(list);
+      if (list.length > 0) {
+        setSelectedMethod(list[0].id);
+        if (list[0].channels?.length > 0) {
+          setSelectedChannel(list[0].channels[0].id);
+        }
+      }
+      const amounts = amountsRes.data?.amounts;
+      if (amounts && amounts.length > 0) {
+        setPresetAmounts(amounts);
+      }
     }).catch((err) => {
-      apiStatus.markFailed('shop/payment-channels', getErrorMessage(err));
+      apiStatus.markFailed('shop/payment-methods', getErrorMessage(err));
     }).finally(() => setLoading(false));
   }, []);
 
-  const selectedChannelData = channels.find((c) => c.id === selectedChannel);
+  const currentMethod = methods.find((m) => m.id === selectedMethod);
+  const currentChannel = currentMethod?.channels?.find((c) => c.id === selectedChannel);
+
+  // When switching method, auto-select its first channel
+  const handleSelectMethod = (method: PaymentMethod) => {
+    setSelectedMethod(method.id);
+    if (method.channels?.length > 0) {
+      setSelectedChannel(method.channels[0].id);
+    } else {
+      setSelectedChannel(null);
+    }
+    setError('');
+  };
 
   const handleSubmit = async () => {
     if (!selectedChannel || !amount) {
@@ -76,12 +102,12 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
       setError('Please enter a valid amount');
       return;
     }
-    if (selectedChannelData && numAmount < selectedChannelData.min_amount) {
-      setError(`Minimum amount is $${selectedChannelData.min_amount}`);
+    if (currentChannel && numAmount < currentChannel.min_amount) {
+      setError(`Minimum amount is $${currentChannel.min_amount}`);
       return;
     }
-    if (selectedChannelData && numAmount > selectedChannelData.max_amount) {
-      setError(`Maximum amount is $${selectedChannelData.max_amount}`);
+    if (currentChannel && numAmount > currentChannel.max_amount) {
+      setError(`Maximum amount is $${currentChannel.max_amount}`);
       return;
     }
 
@@ -161,24 +187,24 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
         <h2 className="text-sm font-bold text-white">Deposit</h2>
       </div>
 
-      {/* Payment Channels */}
+      {/* Payment Methods */}
       <div className="mb-4">
         <h3 className="text-xs font-semibold text-[#8892b0] mb-2">Payment Method</h3>
         {loading ? (
           <div className="flex items-center justify-center py-6">
             <Loader2 className="w-4 h-4 text-[#f5a623] animate-spin" />
           </div>
-        ) : channels.length === 0 ? (
-          <p className="text-xs text-[#8892b0] py-4 text-center">No payment channels available</p>
+        ) : methods.length === 0 ? (
+          <p className="text-xs text-[#8892b0] py-4 text-center">No payment methods available</p>
         ) : (
           <div className="grid grid-cols-3 gap-2">
-            {channels.map((channel) => {
-              const Icon = CHANNEL_ICONS[channel.name?.toLowerCase()] || CreditCard;
-              const isSelected = selectedChannel === channel.id;
+            {methods.map((method) => {
+              const Icon = CHANNEL_ICONS[method.name?.toLowerCase()] || CreditCard;
+              const isSelected = selectedMethod === method.id;
               return (
                 <button
-                  key={channel.id}
-                  onClick={() => setSelectedChannel(channel.id)}
+                  key={method.id}
+                  onClick={() => handleSelectMethod(method)}
                   className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition-all active:scale-95 ${
                     isSelected
                       ? 'bg-[#f5a623]/10 border-[#f5a623]/40'
@@ -188,17 +214,66 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
                     isSelected ? 'bg-[#f5a623]/20' : 'bg-[#1a1a2e]'
                   }`}>
-                    <Icon className={`w-4 h-4 ${isSelected ? 'text-[#f5a623]' : 'text-[#8892b0]'}`} />
+                    {method.icon ? (
+                      <img src={method.icon} alt={method.name} className="w-5 h-5 object-contain" />
+                    ) : (
+                      <Icon className={`w-4 h-4 ${isSelected ? 'text-[#f5a623]' : 'text-[#8892b0]'}`} />
+                    )}
                   </div>
                   <span className={`text-[10px] font-medium ${isSelected ? 'text-[#f5a623]' : 'text-[#ccd6f6]'}`}>
-                    {channel.name}
+                    {method.name}
                   </span>
+                  {(method.bonus_type ?? 0) > 0 && method.bonus_value ? (
+                    <span className="text-[8px] text-green-400 font-medium">
+                      +{method.bonus_type === 1 ? `${method.bonus_value}%` : `$${method.bonus_value}`}
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Channels within selected method (if more than 1) */}
+      {currentMethod && currentMethod.channels.length > 1 && (
+        <div className="mb-3">
+          <h3 className="text-xs font-semibold text-[#8892b0] mb-2">Channel</h3>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {currentMethod.channels.map((ch) => (
+              <button
+                key={ch.id}
+                onClick={() => { setSelectedChannel(ch.id); setError(''); }}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all ${
+                  selectedChannel === ch.id
+                    ? 'bg-[#f5a623]/20 text-[#f5a623] border border-[#f5a623]/40'
+                    : 'bg-[#1a1a2e] text-[#8892b0] border border-[#f5a623]/10'
+                }`}
+              >
+                {ch.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Bonus info */}
+      {currentMethod && (currentMethod.bonus_type ?? 0) > 0 && (
+        <div className="mb-3 p-2.5 rounded-xl bg-green-500/5 border border-green-500/10">
+          <p className="text-[10px] text-green-400">
+            {currentMethod.bonus_type === 1
+              ? `Bonus: +${currentMethod.bonus_value}% on every deposit`
+              : `Bonus: +$${currentMethod.bonus_value} on every deposit`}
+          </p>
+          {(currentMethod.first_deposit_bonus_type ?? 0) > 0 && (
+            <p className="text-[10px] text-green-400/70 mt-0.5">
+              First deposit extra: {currentMethod.first_deposit_bonus_type === 1
+                ? `+${currentMethod.first_deposit_bonus_value}%`
+                : `+$${currentMethod.first_deposit_bonus_value}`}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Amount input */}
       <div className="mb-3">
@@ -214,9 +289,9 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
             className="flex-1 bg-transparent text-white text-xl font-semibold px-2 py-3 outline-none placeholder-[#8892b0]/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
         </div>
-        {selectedChannelData && (
+        {currentChannel && (
           <p className="text-[10px] text-[#8892b0] mt-1">
-            Min: ${selectedChannelData.min_amount} ~ Max: ${selectedChannelData.max_amount}
+            Min: ${currentChannel.min_amount} ~ Max: ${currentChannel.max_amount}
           </p>
         )}
       </div>
@@ -224,7 +299,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
       {/* Preset amounts */}
       <div className="mb-3">
         <div className="grid grid-cols-4 gap-2">
-          {DEPOSIT_PRESET_AMOUNTS.map((val) => (
+          {presetAmounts.map((val) => (
             <button
               key={val}
               onClick={() => { setAmount(String(val)); setError(''); }}
