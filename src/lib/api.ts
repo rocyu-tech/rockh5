@@ -165,7 +165,8 @@ api.interceptors.response.use(
         withCredentials: true, // send httpOnly refresh cookie
       });
 
-      const newToken = res.data?.access_token;
+      // Backend wraps in SuccessResponse: { code, message, data: { access_token } }
+      const newToken = (res.data as Record<string, unknown> | undefined)?.data as string | undefined;
 
       if (newToken) {
         // Token rotation is handled entirely by httpOnly cookies.
