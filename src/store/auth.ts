@@ -71,8 +71,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await authApi.login(phone, password);
       // Backend sets httpOnly cookies. Also sync mirror cookie for middleware.
-      const loginData = res.data?.data || res.data;
-      syncTokenCookie(loginData?.access_token || null);
+      syncTokenCookie(res.data.access_token || null);
       set({
         isLoggedIn: true,
         isLoading: false,
@@ -91,9 +90,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await authApi.register(data);
       // Backend sets httpOnly cookies. Also sync mirror cookie for middleware.
-      const regData = res.data?.data || res.data;
-      syncTokenCookie(regData?.access_token || null);
-      if (regData?.user_id) {
+      syncTokenCookie(res.data.access_token || null);
+      if (res.data.user_id) {
         set({
           isLoggedIn: true,
           isLoading: false,
