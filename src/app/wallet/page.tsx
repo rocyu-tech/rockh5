@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
-import { shopApi, type Channel, type PaymentMethod, type PaymentAccount } from '@/lib/api';
+import { shopApi, type Channel, type PaymentMethod, type PaymentAccount, type ShopProduct } from '@/lib/api';
 import { MONEY_SCALE } from '@/lib/money';
 import Navbar from '@/components/Navbar';
 import {
@@ -28,8 +28,6 @@ type WithdrawChannel = import('@/lib/api').WithdrawChannel & {
   need_account?: boolean;
 };
 
-type DepositProduct = { id: number; amount: number };
-
 const DEFAULT_PRESET_AMOUNTS = [10, 20, 50, 100, 200, 500, 1000, 2000];
 
 const CHANNEL_ICONS: Record<string, typeof CreditCard> = {
@@ -49,7 +47,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<number | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<number | null>(null);
-  const [products, setProducts] = useState<DepositProduct[]>([]);
+  const [products, setProducts] = useState<ShopProduct[]>([]);
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -62,8 +60,8 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
     setLoading(true);
     Promise.all([
       shopApi.getPaymentMethods(),
-      shopApi.getDepositAmountOptions().catch(() => ({ data: { products: [] } })),
-    ]).then(([methodsRes, amountsRes]) => {
+      shopApi.getDepositProducts().catch(() => ({ data: { products: [] } })),
+    ]).then(([methodsRes, productsRes]) => {
       const list = methodsRes.data?.methods ?? [];
       setMethods(list);
       if (list.length > 0) {
@@ -72,14 +70,14 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
           setSelectedChannel(list[0].channels[0].id);
         }
       }
-      const prods = amountsRes.data?.products;
-      if (prods && prods.length > 0) {
+      const prods = productsRes.data?.products ?? [];
+      if (prods.length > 0) {
         setProducts(prods);
         // Store raw x1000 amounts; display as ÷1000
-        setPresetAmounts(prods.map((p) => p.amount));
+        setPresetAmounts(prods.map((p) => p.price));
       }
     }).catch((err) => {
-      apiStatus.markFailed('shop/deposit-amount-options', getErrorMessage(err));
+      apiStatus.markFailed('shop/deposit-products', getErrorMessage(err));
     }).finally(() => setLoading(false));
   }, []);
 
@@ -119,7 +117,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
     }
 
     // Find matching product_id for the selected amount (compare in stored units)
-    const matchedProduct = products.find((p) => p.amount === storedAmount);
+    const matchedProduct = products.find((p) => p.price === storedAmount);
 
     setError('');
     setSubmitting(true);

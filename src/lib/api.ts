@@ -37,6 +37,17 @@ export interface PaymentMethod {
   first_deposit_bonus_type?: number;
   first_deposit_bonus_value?: number;
 }
+
+// Shop product (deposit/withdraw amount option with bonus)
+export interface ShopProduct {
+  id: number;
+  type: number;
+  name: string;
+  price: number;
+  bonus_amount: number;
+  currency: string;
+  sort_order: number;
+}
 export interface PaymentAccount {
   id: number;
   bank_name: string;
@@ -503,6 +514,10 @@ export const shopApi = {
 
   // Withdraw methods (grouped with channels)
   getWithdrawMethods: () => api.get<{ methods: PaymentMethod[] }>("/shop/withdraw-methods"),
+
+  // Shop products (deposit/withdraw amount options with bonus)
+  getDepositProducts: () => api.get<{ products: ShopProduct[] }>("/shop/deposit-products"),
+  getWithdrawProducts: () => api.get<{ products: ShopProduct[] }>("/shop/withdraw-products"),
 
   // Create recharge (deposit) order
   recharge: (data: { channel_id: number; product_id?: number; amount?: number }) =>
