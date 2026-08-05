@@ -62,7 +62,16 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
       shopApi.getPaymentMethods(),
       shopApi.getDepositProducts().catch(() => ({ data: { products: [] } })),
     ]).then(([methodsRes, productsRes]) => {
-      const list = methodsRes.data?.methods ?? [];
+      const list = (methodsRes.data?.methods ?? []).map((m: PaymentMethod) => ({
+        ...m,
+        min_amount: Number(m.min_amount) || 0,
+        max_amount: Number(m.max_amount) || 0,
+        channels: (m.channels ?? []).map((c: Channel) => ({
+          ...c,
+          min_amount: Number(c.min_amount) || 0,
+          max_amount: Number(c.max_amount) || 0,
+        })),
+      }));
       setMethods(list);
       if (list.length > 0) {
         setSelectedMethod(list[0].id);
@@ -70,7 +79,11 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
           setSelectedChannel(list[0].channels[0].id);
         }
       }
-      const prods = productsRes.data?.products ?? [];
+      const prods = (productsRes.data?.products ?? []).map((p: ShopProduct) => ({
+        ...p,
+        price: Number(p.price) || 0,
+        bonus_amount: Number(p.bonus_amount) || 0,
+      }));
       if (prods.length > 0) {
         setProducts(prods);
         // Store raw x1000 amounts; display as ÷1000
@@ -359,10 +372,16 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
       }),
     ]).then(([channelsRes, amountsRes]) => {
       const { channels: list } = channelsRes.data;
-      setChannels(list);
-      if (list.length > 0) setSelectedChannel(list[0].id);
-      const amounts = amountsRes.data?.amounts;
-      if (amounts && amounts.length > 0) {
+      const converted = (list ?? []).map((c: WithdrawChannel) => ({
+        ...c,
+        min_amount: Number(c.min_amount) || 0,
+        max_amount: Number(c.max_amount) || 0,
+        daily_limit: Number(c.daily_limit) || 0,
+      }));
+      setChannels(converted);
+      if (converted.length > 0) setSelectedChannel(converted[0].id);
+      const amounts = (amountsRes.data?.amounts ?? []).map((a: number | string) => Number(a) || 0);
+      if (amounts.length > 0) {
         setPresetAmounts(amounts);
       }
     }).catch((err) => {
