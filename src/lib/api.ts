@@ -143,6 +143,8 @@ function forceLogout() {
   // Clear the middleware cookie so Next.js route guards release immediately
   if (typeof document !== 'undefined') {
     document.cookie = 'access_token=; path=/; max-age=0';
+    // Clear WS token from localStorage
+    localStorage.removeItem('rockgame_token');
   }
   // Synchronously clear zustand auth state (no API call, no await)
   useAuthStore.setState({

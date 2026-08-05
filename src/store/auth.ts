@@ -119,6 +119,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.warn('[auth] logout API call failed:', err);
     }
     syncTokenCookie(null);
+    // Clear WS token from localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('rockgame_token');
+    }
     set({
       user: null,
       assets: null,
