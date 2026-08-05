@@ -12,6 +12,7 @@ import { toast } from "sonner";
 // ── Shop types (gRPC-Gateway response shapes) ──────────────────────────────
 export interface Channel {
   id: number;
+  method_ids: string;
   name: string;
   type: string;
   min_amount: number;
@@ -22,7 +23,7 @@ export interface WithdrawChannel extends Channel {
   daily_limit?: number;
 }
 
-// Payment method grouped with its channels (returned by GET /shop/payment-methods)
+// Payment method (returned by GET /shop/payment-methods)
 export interface PaymentMethod {
   id: number;
   name: string;
@@ -31,7 +32,6 @@ export interface PaymentMethod {
   min_amount: number;
   max_amount: number;
   sort_order: number;
-  channels: Channel[];
   bonus_type?: number;
   bonus_value?: number;
   first_deposit_bonus_type?: number;

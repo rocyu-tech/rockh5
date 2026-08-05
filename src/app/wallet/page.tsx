@@ -46,7 +46,6 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
 
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<number | null>(null);
-  const [selectedChannel, setSelectedChannel] = useState<number | null>(null);
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -66,18 +65,10 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
         ...m,
         min_amount: Number(m.min_amount) || 0,
         max_amount: Number(m.max_amount) || 0,
-        channels: (m.channels ?? []).map((c: Channel) => ({
-          ...c,
-          min_amount: Number(c.min_amount) || 0,
-          max_amount: Number(c.max_amount) || 0,
-        })),
       }));
       setMethods(list);
       if (list.length > 0) {
         setSelectedMethod(list[0].id);
-        if (list[0].channels?.length > 0) {
-          setSelectedChannel(list[0].channels[0].id);
-        }
       }
       const prods = (productsRes.data?.products ?? []).map((p: ShopProduct) => ({
         ...p,
@@ -95,21 +86,15 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
   }, []);
 
   const currentMethod = methods.find((m) => m.id === selectedMethod);
-  const currentChannel = currentMethod?.channels?.find((c) => c.id === selectedChannel);
 
-  // When switching method, auto-select its first channel
+  // When switching method
   const handleSelectMethod = (method: PaymentMethod) => {
     setSelectedMethod(method.id);
-    if (method.channels?.length > 0) {
-      setSelectedChannel(method.channels[0].id);
-    } else {
-      setSelectedChannel(null);
-    }
     setError('');
   };
 
   const handleSubmit = async () => {
-    if (!selectedChannel || !amount) {
+    if (!currentMethod || !amount) {
       setError('Please select a payment method and enter amount');
       return;
     }
@@ -120,12 +105,12 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
     }
     // Convert display units to stored units (x1000) for validation
     const storedAmount = numAmount * MONEY_SCALE;
-    if (currentChannel && storedAmount < currentChannel.min_amount) {
-      setError(`Minimum amount is $${currentChannel.min_amount / MONEY_SCALE}`);
+    if (currentMethod.min_amount && storedAmount < currentMethod.min_amount) {
+      setError(`Minimum amount is $${currentMethod.min_amount / MONEY_SCALE}`);
       return;
     }
-    if (currentChannel && storedAmount > currentChannel.max_amount) {
-      setError(`Maximum amount is $${currentChannel.max_amount / MONEY_SCALE}`);
+    if (currentMethod.max_amount && storedAmount > currentMethod.max_amount) {
+      setError(`Maximum amount is $${currentMethod.max_amount / MONEY_SCALE}`);
       return;
     }
 
@@ -136,7 +121,6 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
     setSubmitting(true);
     try {
       const res = await shopApi.recharge({
-        channel_id: selectedChannel,
         ...(matchedProduct ? { product_id: matchedProduct.id } : { amount: storedAmount }),
       });
       const data = res.data;
@@ -293,9 +277,9 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
             className="flex-1 bg-transparent text-white text-xl font-semibold px-2 py-3 outline-none placeholder-[#8892b0]/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
         </div>
-        {currentChannel && (
+        {currentMethod && (currentMethod.min_amount > 0 || currentMethod.max_amount > 0) && (
           <p className="text-[10px] text-[#8892b0] mt-1">
-            Min: ${currentChannel.min_amount / MONEY_SCALE} ~ Max: ${currentChannel.max_amount / MONEY_SCALE}
+            Min: ${currentMethod.min_amount / MONEY_SCALE} ~ Max: ${currentMethod.max_amount / MONEY_SCALE}
           </p>
         )}
       </div>
@@ -330,7 +314,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
       {/* Submit */}
       <button
         onClick={handleSubmit}
-        disabled={submitting || !selectedChannel || !amount}
+        disabled={submitting || !selectedMethod || !amount}
         className="w-full py-3 bg-gradient-to-r from-[#f5a623] to-[#e8a910] text-[#0a0a1a] font-semibold rounded-xl text-sm shadow-lg shadow-[#f5a623]/20 disabled:opacity-40 active:scale-[0.98] transition-all"
       >
         {submitting ? (
