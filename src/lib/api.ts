@@ -520,7 +520,7 @@ export const shopApi = {
   getWithdrawProducts: () => api.get<{ products: ShopProduct[] }>("/shop/withdraw-products"),
 
   // Create recharge (deposit) order
-  recharge: (data: { channel_id: number; product_id?: number; amount?: number }) =>
+  recharge: (data: { channel_id?: number; product_id?: number; amount?: number }) =>
     api.post<{ order_no: string; amount: number; status: string; pay_url?: string; pay_token?: string; qr_code?: string }>("/shop/recharge", data),
 
   // Create withdraw order
