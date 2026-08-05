@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
 import { shopApi, type Channel, type PaymentMethod, type PaymentAccount } from '@/lib/api';
+import { MONEY_SCALE } from '@/lib/money';
 import Navbar from '@/components/Navbar';
 import {
   Wallet, CreditCard, Building, Smartphone, Zap,
@@ -74,6 +75,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
       const prods = amountsRes.data?.products;
       if (prods && prods.length > 0) {
         setProducts(prods);
+        // Store raw x1000 amounts; display as ÷1000
         setPresetAmounts(prods.map((p) => p.amount));
       }
     }).catch((err) => {
@@ -105,24 +107,26 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
       setError('Please enter a valid amount');
       return;
     }
-    if (currentChannel && numAmount < currentChannel.min_amount) {
-      setError(`Minimum amount is $${currentChannel.min_amount}`);
+    // Convert display units to stored units (x1000) for validation
+    const storedAmount = numAmount * MONEY_SCALE;
+    if (currentChannel && storedAmount < currentChannel.min_amount) {
+      setError(`Minimum amount is $${currentChannel.min_amount / MONEY_SCALE}`);
       return;
     }
-    if (currentChannel && numAmount > currentChannel.max_amount) {
-      setError(`Maximum amount is $${currentChannel.max_amount}`);
+    if (currentChannel && storedAmount > currentChannel.max_amount) {
+      setError(`Maximum amount is $${currentChannel.max_amount / MONEY_SCALE}`);
       return;
     }
 
-    // Find matching product_id for the selected amount
-    const matchedProduct = products.find((p) => p.amount === numAmount);
+    // Find matching product_id for the selected amount (compare in stored units)
+    const matchedProduct = products.find((p) => p.amount === storedAmount);
 
     setError('');
     setSubmitting(true);
     try {
       const res = await shopApi.recharge({
         channel_id: selectedChannel,
-        ...(matchedProduct ? { product_id: matchedProduct.id } : { amount: numAmount }),
+        ...(matchedProduct ? { product_id: matchedProduct.id } : { amount: storedAmount }),
       });
       const data = res.data;
       if (data?.pay_url) {
@@ -280,7 +284,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
         </div>
         {currentChannel && (
           <p className="text-[10px] text-[#8892b0] mt-1">
-            Min: ${currentChannel.min_amount} ~ Max: ${currentChannel.max_amount}
+            Min: ${currentChannel.min_amount / MONEY_SCALE} ~ Max: ${currentChannel.max_amount / MONEY_SCALE}
           </p>
         )}
       </div>
@@ -288,19 +292,22 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
       {/* Preset amounts */}
       <div className="mb-3">
         <div className="grid grid-cols-4 gap-2">
-          {presetAmounts.map((val) => (
-            <button
-              key={val}
-              onClick={() => { setAmount(String(val)); setError(''); }}
-              className={`py-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
-                amount === String(val)
-                  ? 'bg-gradient-to-r from-[#f5a623] to-[#e8a910] text-[#0a0a1a] shadow-lg shadow-[#f5a623]/20'
-                  : 'bg-[#1a1a2e] text-[#ccd6f6] border border-[#f5a623]/10'
-              }`}
-            >
-              ${val}
-            </button>
-          ))}
+          {presetAmounts.map((val) => {
+            const displayVal = val / MONEY_SCALE;
+            return (
+              <button
+                key={val}
+                onClick={() => { setAmount(String(displayVal)); setError(''); }}
+                className={`py-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+                  amount === String(displayVal)
+                    ? 'bg-gradient-to-r from-[#f5a623] to-[#e8a910] text-[#0a0a1a] shadow-lg shadow-[#f5a623]/20'
+                    : 'bg-[#1a1a2e] text-[#ccd6f6] border border-[#f5a623]/10'
+                }`}
+              >
+                ${displayVal}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -371,8 +378,10 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
   const balance = assets?.balance ?? 0;
 
   const handleAmountClick = (val: number) => {
-    if (val > balance) { setError('Insufficient balance'); return; }
-    setAmount(String(val));
+    // val is in stored units (x1000); balance is in display units
+    const displayVal = val / MONEY_SCALE;
+    if (displayVal > balance) { setError('Insufficient balance'); return; }
+    setAmount(String(displayVal));
     setError('');
   };
 
@@ -386,17 +395,19 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
       setError('Please enter a valid amount');
       return;
     }
+    // Convert display units to stored units (x1000) for validation
+    const storedAmount = numAmount * MONEY_SCALE;
     if (numAmount > balance) {
       setError('Insufficient balance');
       return;
     }
     if (selectedChannelData) {
-      if (numAmount < selectedChannelData.min_amount) {
-        setError(`Minimum withdrawal is $${selectedChannelData.min_amount}`);
+      if (storedAmount < selectedChannelData.min_amount) {
+        setError(`Minimum withdrawal is $${selectedChannelData.min_amount / MONEY_SCALE}`);
         return;
       }
-      if (numAmount > selectedChannelData.max_amount) {
-        setError(`Maximum withdrawal is $${selectedChannelData.max_amount}`);
+      if (storedAmount > selectedChannelData.max_amount) {
+        setError(`Maximum withdrawal is $${selectedChannelData.max_amount / MONEY_SCALE}`);
         return;
       }
       if (selectedChannelData.need_account && !account.trim()) {
@@ -410,7 +421,7 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
     try {
       const res = await shopApi.withdraw({
         channel_id: selectedChannel,
-        amount: numAmount,
+        amount: storedAmount,
         account: account.trim() || undefined,
         account_name: accountName.trim() || undefined,
       });
@@ -558,8 +569,8 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
           />
           <button
             onClick={() => {
-              const max = selectedChannelData ? Math.min(balance, selectedChannelData.max_amount) : balance;
-              setAmount(String(max));
+              const maxRaw = selectedChannelData ? Math.min(balance * MONEY_SCALE, selectedChannelData.max_amount) : balance * MONEY_SCALE;
+              setAmount(String(maxRaw / MONEY_SCALE));
               setError('');
             }}
             className="px-3 py-1 mr-2 rounded-lg bg-[#e94560]/10 text-[#e94560] text-[10px] font-semibold active:bg-[#e94560]/20 whitespace-nowrap"
@@ -569,8 +580,8 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
         </div>
         {selectedChannelData && (
           <p className="text-[10px] text-[#8892b0] mt-1">
-            Min: ${selectedChannelData.min_amount} ~ Max: ${selectedChannelData.max_amount}
-            {(selectedChannelData.daily_limit ?? 0) > 0 && ` | Daily: $${selectedChannelData.daily_limit!.toLocaleString()}`}
+            Min: ${selectedChannelData.min_amount / MONEY_SCALE} ~ Max: ${selectedChannelData.max_amount / MONEY_SCALE}
+            {(selectedChannelData.daily_limit ?? 0) > 0 && ` | Daily: $${(selectedChannelData.daily_limit! / MONEY_SCALE).toLocaleString()}`}
           </p>
         )}
       </div>
@@ -578,19 +589,22 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
       {/* Preset amounts */}
       <div className="mb-3">
         <div className="grid grid-cols-4 gap-2">
-          {presetAmounts.filter((val) => val <= balance || balance <= 0).map((val) => (
-            <button
-              key={val}
-              onClick={() => handleAmountClick(val)}
-              className={`py-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
-                amount === String(val)
-                  ? 'bg-gradient-to-r from-[#e94560] to-[#c0392b] text-white shadow-lg shadow-[#e94560]/20'
-                  : 'bg-[#1a1a2e] text-[#ccd6f6] border border-[#f5a623]/10'
-              }`}
-            >
-              ${val}
-            </button>
-          ))}
+          {presetAmounts.filter((val) => val / MONEY_SCALE <= balance || balance <= 0).map((val) => {
+            const displayVal = val / MONEY_SCALE;
+            return (
+              <button
+                key={val}
+                onClick={() => handleAmountClick(val)}
+                className={`py-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+                  amount === String(displayVal)
+                    ? 'bg-gradient-to-r from-[#e94560] to-[#c0392b] text-white shadow-lg shadow-[#e94560]/20'
+                    : 'bg-[#1a1a2e] text-[#ccd6f6] border border-[#f5a623]/10'
+                }`}
+              >
+                ${displayVal}
+              </button>
+            );
+          })}
         </div>
       </div>
 
