@@ -263,37 +263,22 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
         </div>
       )}
 
-      {/* Amount input */}
+      {/* Amount selection */}
       <div className="mb-3">
         <h3 className="text-xs font-semibold text-[#8892b0] mb-2">Amount</h3>
-        <div className="flex items-center bg-[#16213e] border border-[#f5a623]/20 rounded-xl overflow-hidden focus-within:border-[#f5a623]/50 transition-colors">
-          <span className="pl-4 text-lg text-[#f5a623] font-bold">$</span>
-          <input
-            type="number"
-            inputMode="decimal"
-            placeholder="0.00"
-            value={amount}
-            onChange={(e) => { setAmount(e.target.value); setError(''); }}
-            className="flex-1 bg-transparent text-white text-xl font-semibold px-2 py-3 outline-none placeholder-[#8892b0]/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          />
-        </div>
         {currentMethod && (currentMethod.min_amount > 0 || currentMethod.max_amount > 0) && (
-          <p className="text-[10px] text-[#8892b0] mt-1">
+          <p className="text-[10px] text-[#8892b0] mb-2">
             Min: ${currentMethod.min_amount / MONEY_SCALE} ~ Max: ${currentMethod.max_amount / MONEY_SCALE}
           </p>
         )}
-      </div>
-
-      {/* Preset amounts */}
-      <div className="mb-3">
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {presetAmounts.map((val) => {
             const displayVal = val / MONEY_SCALE;
             return (
               <button
                 key={val}
                 onClick={() => { setAmount(String(displayVal)); setError(''); }}
-                className={`py-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+                className={`py-3 rounded-xl text-sm font-semibold transition-all active:scale-95 ${
                   amount === String(displayVal)
                     ? 'bg-gradient-to-r from-[#f5a623] to-[#e8a910] text-[#0a0a1a] shadow-lg shadow-[#f5a623]/20'
                     : 'bg-[#1a1a2e] text-[#ccd6f6] border border-[#f5a623]/10'
