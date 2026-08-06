@@ -133,7 +133,7 @@ function endpointToFriendly(endpoint: string): string {
 }
 
 /**
- * Extract a user-friendly error message from an Axios error or unknown error.
+ * Extract a user-friendly error message from an Axios error, ConnectError, or unknown error.
  */
 export function getErrorMessage(err: unknown): string {
   if (!err) return 'Unknown error';
@@ -142,6 +142,22 @@ export function getErrorMessage(err: unknown): string {
 
   if (typeof err === 'object') {
     const e = err as Record<string, unknown>;
+
+    // Connect RPC error shape (from @connectrpc/connect)
+    if ('code' in e && typeof e.code === 'number' && 'message' in e) {
+      const code = e.code as number;
+      if (code === 16) return 'Session expired. Please login again.';   // Code.Unauthenticated
+      if (code === 7) return 'Access denied.';                       // Code.PermissionDenied
+      if (code === 5) return 'Resource not found.';                    // Code.NotFound
+      if (code === 8) return 'Resource already exists.';                // Code.AlreadyExists
+      if (code === 2) return 'Invalid request parameters.';             // Code.Unknown
+      if (code === 14) return 'Server error. Please try again later.';  // Code.Internal
+      if (code === 1) return 'Server error. Please try again later.';   // Code.Canceled
+      if (code === 4) return 'Request timed out.';                      // Code.DeadlineExceeded
+      if (code === 10) return 'Resource exhausted. Please try later.';  // Code.ResourceExhausted
+      if (e.message && typeof e.message === 'string') return e.message;
+      return 'Request failed.';
+    }
 
     // Axios error shape
     if ('response' in e && e.response) {

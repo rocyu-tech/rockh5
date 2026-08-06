@@ -144,12 +144,12 @@ export const shopRpc = {
       amount: BigInt(data.amount ?? 0),
     })).then(toPlain),
 
-  withdraw: (data: { channel_id: number; amount: number; account?: string; account_name?: string }) =>
+  withdraw: (data: { channel_id: number; amount: number; account?: string; account_name?: string; withdraw_password?: string }) =>
     shopClient.createWithdraw(new CreateWithdrawRequest({
       channelId: BigInt(data.channel_id),
       amount: BigInt(data.amount),
       accountInfo: data.account ?? "",
-      withdrawPassword: "",
+      withdrawPassword: data.withdraw_password ?? "",
     })).then(toPlain),
 
   getOrders: (params?: { type?: string; page?: number; page_size?: number }) =>
@@ -331,9 +331,10 @@ export const vipRpc = {
   getInfo: () =>
     userClient.getVipInfo(new GetVipInfoRequest()).then(toPlain),
 
+  // NOTE: proto needs user_id but Gate injects x-user-id from auth cookie metadata,
+  // so the request body can be empty — the server reads user_id from context.
   upgrade: () =>
-    // CheckVipUpgrade lives in VIPService
-    vipClient.checkAndUpgrade({} as any).then(toPlain),
+    vipClient.checkAndUpgrade({}).then(toPlain),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -347,6 +348,7 @@ export const wheelRpc = {
   getState: () =>
     activityClient.getWheelState(new GetWheelStateRequest()).then(toPlain),
 
+  // NOTE: proto SpinWheelRequest has no fields; useFree distinction is server-side
   spin: (useFree?: boolean) =>
     activityClient.spinWheel(new SpinWheelRequest()).then(toPlain),
 };
@@ -405,6 +407,9 @@ export const taskRpc = {
       taskId: BigInt(taskId),
     })).then(toPlain),
 
+  // NOTE: proto ClaimTaskRequest only supports single taskId.
+  // Claiming all of a type requires calling claimReward per task.
+  // This method exists for backward compat; callers should use claimReward.
   claimAllRewards: (taskType?: number) =>
     userClient.claimTask(new ClaimTaskRequest({
       taskId: taskType ? BigInt(taskType) : undefined,
@@ -424,10 +429,19 @@ export const mailRpc = {
       mailId: BigInt(id),
     })).then(toPlain),
 
-  deleteMail: (ids: number[]) =>
-    userClient.deleteMail(new DeleteMailRequest({
-      mailId: ids.length > 0 ? BigInt(ids[0]) : undefined,
-    })).then(toPlain),
+  deleteMail: async (ids: number[]) => {
+    // Proto only supports single mail_id, so delete each in parallel
+    const results = await Promise.allSettled(
+      ids.map((id) =>
+        userClient.deleteMail(new DeleteMailRequest({
+          mailId: BigInt(id),
+        })).then(toPlain),
+      ),
+    );
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (failed > 0) throw new Error(`${failed} mail(s) failed to delete`);
+    return { deleted_count: ids.length };
+  },
 
   claimMailAttachment: (id: number) =>
     userClient.claimAttachment(new ClaimAttachmentRequest({

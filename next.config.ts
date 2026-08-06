@@ -71,6 +71,11 @@ const nextConfig: NextConfig = {
 
   async rewrites() {
     return [
+      // Connect/gRPC-Web RPC proxy — H5 sends binary protobuf to Gate
+      {
+        source: "/rockgame.:service/:method*",
+        destination: `${BACKEND_URL}/rockgame.:service/:method*`,
+      },
       {
         source: "/api/v1/:path*",
         destination: `${BACKEND_URL}/api/v1/:path*`,

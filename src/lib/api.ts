@@ -19,6 +19,7 @@ export interface Channel {
   max_amount: number;
   fee_rate: number;
 }
+
 export interface WithdrawChannel extends Channel {
   daily_limit?: number;
 }
@@ -48,6 +49,7 @@ export interface ShopProduct {
   currency: string;
   sort_order: number;
 }
+
 export interface PaymentAccount {
   id: number;
   bank_name: string;
@@ -55,6 +57,7 @@ export interface PaymentAccount {
   account_name: string;
   type: string;
 }
+
 export interface Order {
   id: number;
   order_no: string;
@@ -63,6 +66,7 @@ export interface Order {
   status: number;
   created_at: string;
 }
+
 export const api = axios.create({
   baseURL: "/api/v1",
   timeout: 15000,
@@ -89,6 +93,7 @@ function normalizeKeys(obj: unknown): unknown {
   }
   return out;
 }
+
 // ── Unified response unwrapper ──────────────────────────────────────────
 // All backend responses now follow {code, message, data}.
 // This interceptor extracts `data` on success (code===0) and rejects
@@ -281,12 +286,6 @@ export interface Category {
   game_count?: number;
 }
 
-export interface GameVendor {
-  id: number;
-  name: string;
-  logo?: string;
-}
-
 export interface Game {
   id: number;
   name: string;
@@ -302,13 +301,6 @@ export interface Game {
   new?: boolean;
   tag?: string;
   is_favorite?: boolean;
-}
-
-export interface GameListResponse {
-  list: Game[];
-  total: number;
-  page: number;
-  page_size: number;
 }
 
 export interface UserProfile {
@@ -365,9 +357,6 @@ export const authApi = {
   register: (data: { phone: string; nickname: string; password: string; confirm_password: string; invite_code?: string }) =>
     api.post<{ user_id: number; phone: string; nickname: string; access_token: string; token_type: string; expires_in: number }>("/auth/register", data),
 
-  refresh: (refreshToken: string) =>
-    api.post<{ access_token: string; token_type: string; expires_in: number }>("/auth/refresh", { refresh_token: refreshToken }),
-
   logout: () => api.post<{ result: string }>("/auth/logout"),
 
   // P1: password reset — 2-step flow.
@@ -382,81 +371,8 @@ export const authApi = {
     api.post<{ message: string }>("/auth/password-reset/confirm", { token, new_password: newPassword }, { _noAuth: true } as object),
 };
 
-// VIP — P1
-export const vipApi = {
-  // Returns translated levels. Pass `lang` to get localized benefit names.
-  // The VIPLevel interface (above) is the canonical shape used by existing
-  // components; we keep the response typed as VIPLevel[] for compatibility.
-  getLevels: (lang?: string) =>
-    api.get<{ levels: VIPLevel[] }>("/vip/levels", { params: lang ? { lang } : undefined }),
-  getInfo: () =>
-    api.get<{
-      level: number;
-      growth: number;
-      progress: number;
-      next_level?: { level: number; name: string; growth_required: number } | Record<string, never>;
-    }>("/vip/info"),
-  upgrade: () => api.post<{ current_level: number; upgraded: boolean; old_level: number; new_level: number }>("/vip/upgrade", {}),
-};
-
-// Game history — P1
-export const historyApi = {
-  list: (params: { type?: 'all' | 'slot' | 'poker' | 'baccarat' | 'dragon'; page?: number; page_size?: number } = {}) =>
-    api.get<{
-      list: Array<{
-        id: number;
-        game_type: 'slot' | 'poker' | 'baccarat' | 'dragon';
-        game_id: string;
-        bet_amount: number;
-        win_amount: number;
-        net: number;
-        status: string;
-        is_free_spin?: boolean;
-        duration?: number;
-        player_ids?: number[];
-        winner_id?: number;
-        hand_rank?: string;
-        rake?: number;
-        reel_result?: number[][];
-        paylines_hit?: Array<{ line: number; symbols: number[]; payout: number }>;
-        created_at: string;
-      }>;
-      total: number;
-      page: number;
-      page_size: number;
-      has_more: boolean;
-    }>("/game/manage/history", { params }),
-};
-
-
-// Lobby
-export const lobbyApi = {
-  getBanners: () => api.get<{ banners: Banner[] }>("/lobby/banners"),
-  getCategories: () => api.get<{ categories: Category[] }>("/lobby/categories"),
-  getGames: (params?: { category_id?: number; vendor_id?: number; keyword?: string; page?: number; page_size?: number }) =>
-    api.get<{ games: Game[]; total: number; page: number; page_size: number }>("/lobby/games", { params }),
-  getConfig: () => api.get<Record<string, unknown>>("/lobby/config"),
-  getSplash: () => api.get<Record<string, unknown>>("/lobby/splash"),
-};
-
-// Game
-export const gameApi = {
-  launch: (id: number) => api.get<{ game_url: string; launch_url: string; session_token: string; vendor: string; game_type?: string; game_id?: string; game_info_id?: number }>(`/game/launch/${id}`),
-  getVendors: () => api.get<{ vendors: GameVendor[] }>("/game/vendors"),
-  toggleFavorite: (gameId: number) => api.post<{ is_favorite: boolean }>("/game/manage/favorite", { game_id: gameId }),
-  getRecentGames: () => api.get<{ list: Game[] }>("/game/manage/recent"),
-  searchGames: (keyword: string, page?: number, pageSize?: number) =>
-    api.get<{ list: Game[]; total: number }>("/game/manage/search", { params: { keyword, page, page_size: pageSize } }),
-  endSession: (sessionId: string) => api.post<{ result: string }>("/game/manage/end-session", { session_id: sessionId }),
-};
-
-// Account
+// Account — only uploadAvatar remains (other methods migrated to Connect RPC)
 export const accountApi = {
-  getProfile: () => api.get<UserProfile>("/account/profile"),
-  updateProfile: (data: Partial<UserProfile>) => api.put<UserProfile>("/account/profile", data),
-  getAssets: () => api.get<UserAssets>("/account/assets"),
-  changePassword: (data: { old_password: string; new_password: string }) =>
-    api.post<{ result: string }>("/account/change-password", data),
   uploadAvatar: (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -464,100 +380,9 @@ export const accountApi = {
       headers: { "Content-Type": "multipart/form-data" },
     });
   },
-  deleteAccount: () => api.post<{ result: string }>("/account/delete-account"),
 };
 
-// VIP — original declaration was here; P1 replaced it with the typed
-// version above (line ~295). Section marker kept so git diff is readable.
-
-// Activity
-export const activityApi = {
-  getList: () => api.get<{ activities: Activity[] }>("/activity/list"),
-
-  // Check-in
-  checkIn: () => api.post<{ bonus_amount: number; consecutive_days: number }>("/activity/check-in"),
-  getCheckInState: () => api.get<{ checked_today: boolean; consecutive_days: number; history: Array<{ date: string; bonus: number }> }>("/activity/check-in/state"),
-  getCheckInConfig: () => api.get<{ daily_bonus: number; streak_bonuses: Record<number, number> }>("/activity/check-in/config"),
-
-  // Recharge bonus
-  claimRechargeBonus: () => api.post<{ bonus_amount: number }>("/activity/recharge-bonus"),
-
-  // Timed gift
-  claimTimedGift: () => api.post<{ item_id: number; item_name: string; quantity: number }>("/activity/timed-gift"),
-  getTimedGiftStatus: () => api.get<{ available: boolean; next_available_at: string; cooldown_hours: number }>("/activity/timed-gift/status"),
-};
-
-// Shop
-export const shopApi = {
-  // Wallet balance
-  getWallet: () => api.get<{
-    balance: number;
-    bonus_balance: number;
-    frozen_balance: number;
-    total_recharge: number;
-    total_withdraw: number;
-    recharge_count: number;
-    withdraw_count: number;
-    flow_required: number;
-    flow_completed: number;
-    currency: string;
-  }>("/shop/wallet"),
-
-  // Payment channels (for deposit)
-  getPaymentChannels: () => api.get<{ channels: Channel[] }>("/shop/payment-channels"),
-
-  // Payment methods (grouped with channels, bonus info, VIP/label filtered)
-  getPaymentMethods: () => api.get<{ methods: PaymentMethod[] }>("/shop/payment-methods"),
-
-  // Withdraw channels
-  getWithdrawChannels: () => api.get<{ channels: WithdrawChannel[] }>("/shop/withdraw-channels"),
-
-  // Withdraw methods (grouped with channels)
-  getWithdrawMethods: () => api.get<{ methods: PaymentMethod[] }>("/shop/withdraw-methods"),
-
-  // Shop products (deposit/withdraw amount options with bonus)
-  getDepositProducts: () => api.get<{ products: ShopProduct[] }>("/shop/deposit-products"),
-  getWithdrawProducts: () => api.get<{ products: ShopProduct[] }>("/shop/withdraw-products"),
-
-  // Create recharge (deposit) order
-  recharge: (data: { channel_id?: number; product_id?: number; amount?: number }) =>
-    api.post<{ order_no: string; amount: number; status: string; pay_url?: string; pay_token?: string; qr_code?: string }>("/shop/recharge", data),
-
-  // Create withdraw order
-  withdraw: (data: { channel_id: number; amount: number; account?: string; account_name?: string }) =>
-    api.post<{ order_no: string; amount: number; fee: number; real_amount: number; status: string }>("/shop/withdraw", data),
-
-  // Order history (type: "recharge" | "withdraw" | "all")
-  getOrders: (params?: { type?: string; page?: number; page_size?: number }) =>
-    api.get<{ orders: Order[]; total: number }>("/shop/orders", { params }),
-
-  // User payment accounts (for withdrawal)
-  getPaymentAccounts: () => api.get<{ accounts: PaymentAccount[] }>("/shop/payment-accounts"),
-  setPaymentAccount: (data: { id?: number; account_type: number; title: string; account: string; code?: string; username?: string }) =>
-    api.post<{ id: number }>("/shop/payment-accounts", data),
-
-  // Withdraw password
-  setWithdrawPassword: (data: { old_pwd?: string; new_pwd: string }) =>
-    api.post<{ result: string }>("/shop/withdraw-password", data),
-
-  // Withdraw amount preset options
-  getWithdrawAmountOptions: () => api.get<{ amounts: number[] }>("/shop/withdraw-amount-options"),
-
-  // Deposit amount preset options (product-based)
-  getDepositAmountOptions: () => api.get<{ products: { id: number; amount: number }[] }>("/shop/deposit-amount-options"),
-};
-
-export interface ItemDefine {
-  id: number;
-  name: string;
-  icon: string;
-  type: number; // 1=consumable 2=time-limited 3=permanent
-  duration: number;
-  stackable: number;
-  description: string;
-  i18n_key: string;
-}
-
+// ── Inventory types ─────────────────────────────────────────────────────────
 export interface InventoryItem {
   id: number;
   item_id: number;
@@ -572,7 +397,7 @@ export interface InventoryItem {
   created_at: string;
 }
 
-// === Wheel / Lucky Spin ===
+// ── Wheel / Lucky Spin types ────────────────────────────────────────────────
 export interface WheelPrize {
   id: number;
   name: string;
@@ -637,23 +462,7 @@ export interface SpinResult {
   today_total_spins: number;
 }
 
-export const itemApi = {
-  getInventory: () => api.get<{ items: InventoryItem[] }>("/item/inventory"),
-  getList: () => api.get<{ items: ItemDefine[] }>("/item/list"),
-  useItem: (data: { item_id: number; quantity?: number }) =>
-    api.post<{ quantity: number }>("/item/use", data),
-  transfer: (data: { target_user_id: number; item_id: number; quantity: number }) =>
-    api.post<{ result: string }>("/item/transfer", data),
-};
-
-export const wheelApi = {
-  getConfig: () => api.get<WheelConfig>("/activity/spin-wheel/config"),
-  getState: () => api.get<WheelState>("/activity/spin-wheel/state"),
-  spin: (useFree?: boolean) =>
-    api.post<SpinResult>("/activity/spin-wheel", useFree !== undefined ? { use_free: useFree } : {}),
-};
-
-// ─── Task ────────────────────────────────────────────────────────────────────
+// ── Task types ──────────────────────────────────────────────────────────────
 export interface TaskItem {
   task_id: number;
   task_type: number;
@@ -675,36 +484,7 @@ export interface TaskTypeState {
   task_type_state: TaskItem[];
 }
 
-export interface TaskProgress {
-  task_list: TaskItem[];
-  task_type: number;
-  task_name: string;
-}
-
-export const taskApi = {
-  getTaskConfig: async () => {
-    const [daily, weekly, growth] = await Promise.allSettled([
-      api.get<{ tasks?: TaskItem[] }>("/task/daily"),
-      api.get<{ tasks?: TaskItem[] }>("/task/weekly"),
-      api.get<{ tasks?: TaskItem[] }>("/task/growth"),
-    ]);
-    const getList = (r: PromiseSettledResult<{ data?: { tasks?: TaskItem[] } }>): TaskItem[] =>
-      r.status === 'fulfilled' ? (r.value.data?.tasks || []) : [];
-    const wrap = (list: TaskItem[], type: number): TaskTypeState => ({
-      task_type: type,
-      receive_all_btn: list.some(t => t.receive_status === 1) ? 1 : 0,
-      task_type_state: list,
-    });
-    return [wrap(getList(daily), 0), wrap(getList(weekly), 1), wrap(getList(growth), 2)];
-  },
-  getTaskProgress: () => api.get<TaskProgress[]>("/task/progress"),
-  claimReward: (taskId: number) =>
-    api.post<{ item_id: number; item_name: string; quantity: number }>("/task/claim", { task_id: taskId }),
-  claimAllRewards: (taskType?: number) =>
-    api.post<{ count: number; items: Array<{ item_id: number; item_name: string; quantity: number }> }>("/task/claim", taskType !== undefined ? { task_type: taskType } : {}),
-};
-
-// ─── Mail ────────────────────────────────────────────────────────────────────
+// ── Mail types ──────────────────────────────────────────────────────────────
 export interface MailItem {
   mail_id: number;
   title: string;
@@ -724,27 +504,7 @@ export interface MailItem {
   }>;
 }
 
-export interface MailListResult {
-  mail_type: number;
-  mail_count: number;
-  new_mail_count: number;
-  unread_mail_count: number;
-  list: MailItem[];
-}
-
-export const mailApi = {
-  getMailbox: () => api.get<Record<string, unknown>>("/mail/inbox"),
-  readMail: (id: number) =>
-    api.post<{ mail_id: number; title: string; content: string; attachment?: Array<{ item_id: number; item_name: string; quantity: number; icon: string }> }>("/mail/read", { mail_id: id }),
-  deleteMail: (ids: number[]) =>
-    api.post<{ result: string }>("/mail/delete", { mail_ids: ids }),
-  claimMailAttachment: (id: number) =>
-    api.post<{ items: Array<{ item_id: number; item_name: string; quantity: number }> }>("/mail/claim-attachment", { mail_id: id }),
-  getUnreadCount: () =>
-    api.get<{ unread_count: number }>("/mail/unread-count"),
-};
-
-// ─── Rank ────────────────────────────────────────────────────────────────────
+// ── Rank types ──────────────────────────────────────────────────────────────
 export interface RankItem {
   rank: number;
   user_id: number;
@@ -754,24 +514,7 @@ export interface RankItem {
   total_amount: number;
 }
 
-export interface RankListResult {
-  my_rank?: RankItem;
-  rank_type: string;
-  period: string;
-  total_count: number;
-  rank_list: RankItem[];
-}
-
-export const rankApi = {
-  getRankList: (rankType: string, period?: string, page?: number) =>
-    api.get<RankListResult>("/rank/list", { params: { rank_type: rankType, period, page } }),
-  getMyRank: (rankType: string) =>
-    api.get<{ my_rank: RankItem }>("/rank/my-rank", { params: { rank_type: rankType } }),
-  getTopPlayers: (rankType: string, limit?: number) =>
-    api.get<RankItem[]>("/rank/top", { params: { rank_type: rankType, limit } }),
-};
-
-// ─── Agent ───────────────────────────────────────────────────────────────────
+// ── Agent types ─────────────────────────────────────────────────────────────
 export interface AgentInfo {
   user_id: number;
   nickname: string;
@@ -816,26 +559,3 @@ export interface CommissionSummary {
   available_commission: number;
   pending_commission: number;
 }
-
-export const agentApi = {
-  getAgentInfo: () => api.get<AgentInfo>("/agent/info"),
-  getSubordinates: (page?: number, pageSize?: number) =>
-    api.get<{ total: number; list: SubordinateItem[] }>("/agent/subordinates", { params: { page, page_size: pageSize } }),
-  getCommissionRecords: (page?: number, pageSize?: number) =>
-    api.get<{ total: number; list: CommissionRecord[] }>("/agent/commissions", { params: { page, page_size: pageSize } }),
-  getDashboard: () => api.get<CommissionSummary>("/agent/dashboard"),
-  requestSettlement: () => api.post<{ result: string }>("/agent/settlement"),
-  getPromoLink: () => api.post<{ referral_code: string; referral_link: string }>("/agent/promo-link"),
-};
-
-// ─── Reddot ──────────────────────────────────────────────────────────────────
-export interface ReddotState {
-  categories: Record<string, number>;
-  total: number;
-}
-
-export const reddotApi = {
-  getReddots: () => api.get<ReddotState>("/lobby/reddot/state"),
-  markAsRead: (category: string) =>
-    api.post<{ status: string }>("/lobby/reddot/read", { category }),
-};
