@@ -6,6 +6,12 @@ const BACKEND_URL =
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
+  webpack: (config) => {
+    config.resolve.extensionAlias = {
+      ".js": [".ts", ".js"],
+    };
+    return config;
+  },
 
   // P0-10: Security headers + CSP.
   // - frame-ancestors 'none' → blocks clickjacking (the admin panel
