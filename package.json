@@ -12,10 +12,10 @@
   },
   "dependencies": {
     "@bufbuild/protobuf": "^1.10.1",
-    "@bufbuild/protoc-gen-connect-es": "^0.13.0",
     "@bufbuild/protoc-gen-es": "^1.10.1",
     "@connectrpc/connect": "^1.7.0",
     "@connectrpc/connect-web": "^1.7.0",
+    "@connectrpc/protoc-gen-connect-es": "^1.7.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.0",
     "@radix-ui/react-aspect-ratio": "^1.1.0",
