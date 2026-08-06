@@ -25,8 +25,8 @@ export default function AgentPage() {
       const [infoRes, summaryRes, subsRes, recordsRes] = await Promise.all([
         agentRpc.getAgentInfo(),
         agentRpc.getDashboard(),
-        agentRpc.getSubordinates(1, 20),
-        agentRpc.getCommissionRecords(1, 20),
+        agentRpc.getSubordinates(),
+        agentRpc.getCommissionRecords(),
       ]);
       setAgentInfo(infoRes);
       setCommissionSummary(summaryRes);

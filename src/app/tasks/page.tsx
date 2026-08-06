@@ -57,9 +57,13 @@ export default function TasksPage() {
   };
 
   const handleClaimAll = async (taskType: number) => {
+    const claimableIds = currentTasks
+      .filter((t: TaskItem) => t.receive_status === 1 && t.task_status === 2)
+      .map((t: TaskItem) => t.task_id);
+    if (!claimableIds.length) return;
     try {
-      const res = await taskRpc.claimAllRewards(taskType);
-      toast.success(`Claimed ${res.count} rewards!`);
+      const res = await taskRpc.claimAllRewards(claimableIds);
+      toast.success(`Claimed ${res.claimed_count} rewards!`);
       await fetchTasks();
     } catch (err) {
       toast.error(getErrorMessage(err));

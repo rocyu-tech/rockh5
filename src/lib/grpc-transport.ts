@@ -46,21 +46,34 @@ function forceLogout() {
 
 // ── Token refresh (REST call to Gate's Fiber handler) ─────────────────
 
+import type { Transport, UnaryRequest } from "@connectrpc/connect";
+
 let isRefreshing = false;
 let failedQueue: Array<{
+  req: UnaryRequest;
+  next: (req: UnaryRequest) => Promise<any>;
   resolve: (value: unknown) => void;
   reject: (reason?: unknown) => void;
 }> = [];
 
-function processQueue(error: unknown, token: string | null = null) {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
+async function processQueue(error: unknown) {
+  const queue = [...failedQueue];
+  failedQueue = [];
+  if (error) {
+    queue.forEach((prom) => prom.reject(error));
+    return;
+  }
+  // Re-send each queued request after token refresh
+  const results = await Promise.allSettled(
+    queue.map((prom) => prom.next(prom.req)),
+  );
+  results.forEach((result, i) => {
+    if (result.status === "fulfilled") {
+      queue[i].resolve(result.value);
     } else {
-      prom.resolve(token);
+      queue[i].reject(result.reason);
     }
   });
-  failedQueue = [];
 }
 
 async function refreshAuthToken(): Promise<boolean> {
@@ -121,8 +134,9 @@ function authInterceptor(): Interceptor {
       if (err.code === Code.Unauthenticated) {
         // Try to refresh and retry
         if (isRefreshing) {
+          // Another request is already refreshing — queue this request for retry
           return new Promise<never>((resolve, reject) => {
-            failedQueue.push({ resolve: resolve as (value: unknown) => void, reject });
+            failedQueue.push({ req, next, resolve: resolve as (value: unknown) => void, reject });
           });
         }
 
@@ -131,10 +145,11 @@ function authInterceptor(): Interceptor {
         isRefreshing = false;
 
         if (refreshed) {
-          processQueue(null);
-          // Retry original request
+          // Retry original request + all queued requests
           req.header.set("x-grpc-retried", "1");
-          return next(req);
+          const retry = next(req);
+          processQueue(null);
+          return retry;
         }
 
         // Refresh failed — force logout

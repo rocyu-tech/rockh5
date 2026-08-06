@@ -198,7 +198,7 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
     setShowResult(false);
 
     try {
-      const result = await wheelRpc.spin(useFree || undefined);
+      const result = await wheelRpc.spin();
       if (result) {
         const prizes = config?.prizes ?? [];
         const prizeCount = prizes.length;

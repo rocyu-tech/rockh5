@@ -348,8 +348,8 @@ export const wheelRpc = {
   getState: () =>
     activityClient.getWheelState(new GetWheelStateRequest()).then(toPlain),
 
-  // NOTE: proto SpinWheelRequest has no fields; useFree distinction is server-side
-  spin: (useFree?: boolean) =>
+  // Server-side determines free vs paid based on remaining free spins.
+  spin: () =>
     activityClient.spinWheel(new SpinWheelRequest()).then(toPlain),
 };
 
@@ -407,13 +407,22 @@ export const taskRpc = {
       taskId: BigInt(taskId),
     })).then(toPlain),
 
-  // NOTE: proto ClaimTaskRequest only supports single taskId.
-  // Claiming all of a type requires calling claimReward per task.
-  // This method exists for backward compat; callers should use claimReward.
-  claimAllRewards: (taskType?: number) =>
-    userClient.claimTask(new ClaimTaskRequest({
-      taskId: taskType ? BigInt(taskType) : undefined,
-    })).then(toPlain),
+  // Claim rewards for multiple completed tasks.
+  // Proto only supports single taskId, so we call claimReward per task in parallel.
+  claimAllRewards: async (taskIds: number[]) => {
+    if (!taskIds.length) return { claimed_count: 0 };
+    const results = await Promise.allSettled(
+      taskIds.map((taskId) =>
+        userClient.claimTask(new ClaimTaskRequest({
+          taskId: BigInt(taskId),
+        })).then(toPlain),
+      ),
+    );
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (failed > 0) throw new Error(`${succeeded} claimed, ${failed} failed`);
+    return { claimed_count: succeeded };
+  },
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -482,10 +491,10 @@ export const agentRpc = {
   getAgentInfo: () =>
     agentClient.getAgentInfo(new GetAgentInfoRequest()).then(toPlain),
 
-  getSubordinates: (page?: number, pageSize?: number) =>
+  getSubordinates: () =>
     agentClient.getSubordinates(new GetSubordinatesRequest()).then(toPlain),
 
-  getCommissionRecords: (page?: number, pageSize?: number) =>
+  getCommissionRecords: () =>
     agentClient.getCommissions(new GetCommissionsRequest()).then(toPlain),
 
   getDashboard: () =>
