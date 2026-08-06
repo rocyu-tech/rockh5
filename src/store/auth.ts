@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { authApi, accountApi, mailApi } from "@/lib/api";
+import { authApi, accountApi, mailApi, reddotApi } from "@/lib/api";
 import type { UserProfile, UserAssets } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api-status";
 
@@ -159,8 +159,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   fetchUnreadMailCount: async () => {
     try {
-      const res = await mailApi.getUnreadCount();
-      set({ unreadMailCount: res.data?.unread_count || 0 });
+      const res = await reddotApi.getReddots();
+      set({ unreadMailCount: res.data?.categories?.mail || 0 });
     } catch (err) {
       console.warn('[auth] fetch unread mail count failed:', err);
     }
