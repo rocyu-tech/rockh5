@@ -6,6 +6,7 @@ const BACKEND_URL =
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
+  transpilePackages: ["@connectrpc/connect", "@connectrpc/connect-web", "@bufbuild/protobuf"],
   webpack: (config) => {
     config.resolve.extensionAlias = {
       ".js": [".ts", ".js"],
