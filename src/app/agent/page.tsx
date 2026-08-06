@@ -5,7 +5,8 @@ import { Users, Copy, TrendingUp, DollarSign, UserPlus, ChevronRight, Loader2, A
 import Navbar from '@/components/Navbar';
 import { useAppStore } from '@/store/app';
 import { Button } from '@/components/ui/button';
-import { agentApi, AgentInfo, SubordinateItem, CommissionSummary, CommissionRecord } from '@/lib/api';
+import { AgentInfo, SubordinateItem, CommissionSummary, CommissionRecord } from '@/lib/api';
+import { agentRpc } from '@/lib/rpc';
 import { toast } from 'sonner';
 import { getErrorMessage } from "@/lib/api-status";
 
@@ -22,15 +23,15 @@ export default function AgentPage() {
   const fetchData = useCallback(async () => {
     try {
       const [infoRes, summaryRes, subsRes, recordsRes] = await Promise.all([
-        agentApi.getAgentInfo(),
-        agentApi.getDashboard(),
-        agentApi.getSubordinates(1, 20),
-        agentApi.getCommissionRecords(1, 20),
+        agentRpc.getAgentInfo(),
+        agentRpc.getDashboard(),
+        agentRpc.getSubordinates(1, 20),
+        agentRpc.getCommissionRecords(1, 20),
       ]);
-      setAgentInfo(infoRes.data);
-      setCommissionSummary(summaryRes.data);
-      setSubordinates(subsRes.data?.list || []);
-      setRecords(recordsRes.data?.list || []);
+      setAgentInfo(infoRes);
+      setCommissionSummary(summaryRes);
+      setSubordinates(subsRes?.list || []);
+      setRecords(recordsRes?.list || []);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -47,8 +48,8 @@ export default function AgentPage() {
   const handleGenerateLink = async () => {
     setGeneratingLink(true);
     try {
-      const res = await agentApi.getPromoLink();
-      setAgentInfo(prev => prev ? { ...prev, referral_link: res.data.referral_link, referral_code: res.data.referral_code } : prev);
+      const res = await agentRpc.getPromoLink();
+      setAgentInfo(prev => prev ? { ...prev, referral_link: res.referral_link, referral_code: res.referral_code } : prev);
       toast.success('Promo link generated!');
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -67,7 +68,7 @@ export default function AgentPage() {
   const handleSettlement = async () => {
     setSettling(true);
     try {
-      await agentApi.requestSettlement();
+      await agentRpc.requestSettlement();
       toast.success('Settlement requested!');
       await fetchData();
     } catch (err) {

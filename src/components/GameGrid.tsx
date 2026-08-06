@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Search, Gamepad2, Loader2, AlertCircle } from 'lucide-react';
-import { lobbyApi, type Game } from '@/lib/api';
+import { type Game } from '@/lib/api';
+import { lobbyRpc } from '@/lib/rpc';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
 import GameCard from './GameCard';
 import { Input } from '@/components/ui/input';
@@ -32,8 +33,7 @@ export default function GameGrid({ categoryId }: GameGridProps) {
       if (catId > 0) params.category_id = catId;
       if (keyword) params.keyword = keyword;
 
-      const res = await lobbyApi.getGames(params);
-      const data = res.data;
+      const data = await lobbyRpc.getGames(params);
       const list = data?.games;
 
       if (list?.length) {

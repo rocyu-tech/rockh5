@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
-import { shopApi, type Channel, type PaymentMethod, type PaymentAccount, type ShopProduct } from '@/lib/api';
+import { type Channel, type PaymentMethod, type PaymentAccount, type ShopProduct } from '@/lib/api';
+import { shopRpc } from '@/lib/rpc';
 import { MONEY_SCALE } from '@/lib/money';
 import Navbar from '@/components/Navbar';
 import {
@@ -58,10 +59,10 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      shopApi.getPaymentMethods(),
-      shopApi.getDepositProducts().catch(() => ({ data: { products: [] } })),
+      shopRpc.getPaymentMethods(),
+      shopRpc.getDepositProducts().catch(() => ({ products: [] })),
     ]).then(([methodsRes, productsRes]) => {
-      const list = (methodsRes.data?.methods ?? []).map((m: PaymentMethod) => ({
+      const list = (methodsRes?.methods ?? []).map((m: PaymentMethod) => ({
         ...m,
         min_amount: Number(m.min_amount) || 0,
         max_amount: Number(m.max_amount) || 0,
@@ -70,7 +71,7 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
       if (list.length > 0) {
         setSelectedMethod(list[0].id);
       }
-      const prods = (productsRes.data?.products ?? []).map((p: ShopProduct) => ({
+      const prods = (productsRes?.products ?? []).map((p: ShopProduct) => ({
         ...p,
         price: Number(p.price) || 0,
         bonus_amount: Number(p.bonus_amount) || 0,
@@ -120,13 +121,13 @@ function DepositTab({ onGoBack }: { onGoBack: () => void }) {
     setError('');
     setSubmitting(true);
     try {
-      const res = await shopApi.recharge({
+      const res = await shopRpc.recharge({
+        channel_id: currentMethod.id,
         ...(matchedProduct ? { product_id: matchedProduct.id } : { amount: storedAmount }),
       });
-      const data = res.data;
-      if (data?.pay_url) {
-        setPayUrl(data.pay_url);
-        setOrderNo(data.order_no || '');
+      if (res?.pay_url) {
+        setPayUrl(res.pay_url);
+        setOrderNo(res.order_no || '');
       } else {
         setError('Payment URL not available');
       }
@@ -334,13 +335,13 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      shopApi.getWithdrawChannels(),
-      shopApi.getWithdrawAmountOptions().catch((err) => {
+      shopRpc.getWithdrawChannels(),
+      shopRpc.getWithdrawAmountOptions().catch((err) => {
         toast.error(getErrorMessage(err));
-        return { data: { amounts: [] } };
+        return { amounts: [] };
       }),
     ]).then(([channelsRes, amountsRes]) => {
-      const { channels: list } = channelsRes.data;
+      const { channels: list } = channelsRes;
       const converted = (list ?? []).map((c: WithdrawChannel) => ({
         ...c,
         min_amount: Number(c.min_amount) || 0,
@@ -349,7 +350,7 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
       }));
       setChannels(converted);
       if (converted.length > 0) setSelectedChannel(converted[0].id);
-      const amounts = (amountsRes.data?.amounts ?? []).map((a: number | string) => Number(a) || 0);
+      const amounts = (amountsRes?.amounts ?? []).map((a: number | string) => Number(a) || 0);
       if (amounts.length > 0) {
         setPresetAmounts(amounts);
       }
@@ -405,15 +406,14 @@ function WithdrawTab({ onGoBack }: { onGoBack: () => void }) {
     setError('');
     setSubmitting(true);
     try {
-      const res = await shopApi.withdraw({
+      const res = await shopRpc.withdraw({
         channel_id: selectedChannel,
         amount: storedAmount,
         account: account.trim() || undefined,
         account_name: accountName.trim() || undefined,
       });
-      const data = res.data;
-      if (data?.order_no) {
-        setOrderNo(data.order_no);
+      if (res?.order_no) {
+        setOrderNo(res.order_no);
         setAmount('');
         setAccount('');
         setAccountName('');
@@ -754,8 +754,8 @@ function SettingsTab() {
 
   useEffect(() => {
     setLoadingAccounts(true);
-    shopApi.getPaymentAccounts().then((res) => {
-      const { accounts: list } = res.data;
+    shopRpc.getPaymentAccounts().then((res) => {
+      const { accounts: list } = res;
       setPaymentAccounts(list);
     }).catch((err) => { toast.error(getErrorMessage(err)); }).finally(() => setLoadingAccounts(false));
   }, []);
@@ -767,7 +767,7 @@ function SettingsTab() {
     }
     setSavingAccount(true);
     try {
-      await shopApi.setPaymentAccount({
+      await shopRpc.setPaymentAccount({
         account_type: parseInt(newAccountChannel) || 1,
         title: newAccountTitle || newAccountChannel,
         account: newAccountNumber,
@@ -778,8 +778,8 @@ function SettingsTab() {
       setNewAccountNumber('');
       setNewAccountTitle('');
       // Refresh list
-      const listRes = await shopApi.getPaymentAccounts();
-      setPaymentAccounts(listRes.data.accounts);
+      const listRes = await shopRpc.getPaymentAccounts();
+      setPaymentAccounts(listRes.accounts);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -798,7 +798,7 @@ function SettingsTab() {
     }
     setChangingPwd(true);
     try {
-      await shopApi.setWithdrawPassword({
+      await shopRpc.setWithdrawPassword({
         old_pwd: oldPwd,
         new_pwd: newPwd,
       });

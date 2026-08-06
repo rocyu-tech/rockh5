@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import { authApi, accountApi, mailApi, reddotApi } from "@/lib/api";
+import { authApi, accountApi } from "@/lib/api";
 import type { UserProfile, UserAssets } from "@/lib/api";
+import { accountRpc, reddotRpc } from "@/lib/rpc";
 import { getErrorMessage } from "@/lib/api-status";
 
 // Auth uses httpOnly cookies for actual auth (set by backend).
@@ -133,8 +134,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   fetchProfile: async () => {
     try {
-      const res = await accountApi.getProfile();
-      set({ user: res.data, isLoggedIn: true });
+      const user = await accountRpc.getProfile();
+      set({ user, isLoggedIn: true });
     } catch (err) {
       // Auth errors (401) are handled by the axios interceptor.
       // Log non-auth errors for debugging.
@@ -147,8 +148,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   fetchAssets: async () => {
     try {
-      const res = await accountApi.getAssets();
-      set({ assets: res.data });
+      const assets = await accountRpc.getAssets();
+      set({ assets });
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status && status !== 401 && status !== 403) {
@@ -159,8 +160,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   fetchUnreadMailCount: async () => {
     try {
-      const res = await reddotApi.getReddots();
-      set({ unreadMailCount: res.data?.categories?.mail || 0 });
+      const data = await reddotRpc.getReddots();
+      set({ unreadMailCount: data?.categories?.mail || 0 });
     } catch (err) {
       console.warn('[auth] fetch unread mail count failed:', err);
     }

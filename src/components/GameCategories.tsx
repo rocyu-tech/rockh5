@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { lobbyApi, type Category } from '@/lib/api';
+import { type Category } from '@/lib/api';
+import { lobbyRpc } from '@/lib/rpc';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
 
 // Synthetic UI convention — always prepended, never from backend.
@@ -33,8 +34,8 @@ export default function GameCategories({ activeCategory, onCategoryChange }: Gam
   const loadCategories = useCallback(() => {
     setLoading(true);
     setError(null);
-    lobbyApi.getCategories().then((res) => {
-      const list = res.data?.categories;
+    lobbyRpc.getCategories().then((res) => {
+      const list = res?.categories;
       if (list?.length) {
         setCategories([ALL_GAMES, ...list]);
       }
@@ -48,9 +49,9 @@ export default function GameCategories({ activeCategory, onCategoryChange }: Gam
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    lobbyApi.getCategories().then((res) => {
+    lobbyRpc.getCategories().then((res) => {
       if (cancelled) return;
-      const list = res.data?.categories;
+      const list = res?.categories;
       if (list?.length) setCategories([ALL_GAMES, ...list]);
       apiStatus.markSuccess('lobby/categories');
     }).catch((err) => {

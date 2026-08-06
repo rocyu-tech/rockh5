@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '@/store/auth';
-import { wheelApi, type WheelConfig, type WheelState, type SpinResult } from '@/lib/api';
+import { type WheelConfig, type WheelState, type SpinResult } from '@/lib/api';
+import { wheelRpc } from '@/lib/rpc';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Loader2, RotateCw, Gift, Zap, Clock, History, X } from 'lucide-react';
@@ -51,11 +52,11 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
     setError('');
     try {
       const [configRes, stateRes] = await Promise.all([
-        wheelApi.getConfig(),
-        wheelApi.getState(),
+        wheelRpc.getConfig(),
+        wheelRpc.getState(),
       ]);
-      setConfig(configRes.data ?? null);
-      setState(stateRes.data ?? null);
+      setConfig(configRes ?? null);
+      setState(stateRes ?? null);
     } catch (err: unknown) {
       console.error('[SpinWheel] fetch error:', err);
       setError('Failed to load wheel data');
@@ -197,8 +198,7 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
     setShowResult(false);
 
     try {
-      const res = await wheelApi.spin(useFree || undefined);
-      const result = res.data;
+      const result = await wheelRpc.spin(useFree || undefined);
       if (result) {
         const prizes = config?.prizes ?? [];
         const prizeCount = prizes.length;
@@ -214,7 +214,7 @@ export default function SpinWheel({ open, onOpenChange }: SpinWheelProps) {
         setTimeout(() => {
           setShowResult(true);
           setSpinning(false);
-          wheelApi.getState().then(s => setState(s.data ?? null));
+          wheelRpc.getState().then(s => setState(s ?? null));
         }, 4500);
       }
     } catch (err: unknown) {

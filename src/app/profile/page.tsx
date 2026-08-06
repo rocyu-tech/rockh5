@@ -31,6 +31,7 @@ import {
   Languages,
 } from 'lucide-react';
 import { accountApi } from '@/lib/api';
+import { accountRpc } from '@/lib/rpc';
 import { toast } from 'sonner';
 import { useLocale } from '@/i18n/provider';
 import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
@@ -85,11 +86,11 @@ export default function ProfilePage() {
   const fetchTransactions = async (filter: string) => {
     setTxLoading(true);
     try {
-      const { shopApi } = await import('@/lib/api');
+      const { shopRpc } = await import('@/lib/rpc');
       const params: Record<string, unknown> = { page: 1, page_size: 20 };
       if (filter !== 'all') params.type = filter;
-      const res = await shopApi.getOrders(params as { page?: number; page_size?: number });
-      const { orders } = res.data;
+      const res = await shopRpc.getOrders(params as { page?: number; page_size?: number });
+      const { orders } = res;
       setTransactions(orders);
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -145,7 +146,7 @@ export default function ProfilePage() {
     }
     setChangingPassword(true);
     try {
-      await accountApi.changePassword({
+      await accountRpc.changePassword({
         old_password: oldPassword,
         new_password: newPassword,
       });
@@ -164,10 +165,9 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     setSavingProfile(true);
     try {
-      await accountApi.updateProfile({
+      await accountRpc.updateProfile({
         nickname: editNickname || undefined,
-        phone: editPhone || undefined,
-      });
+      } as Parameters<typeof accountRpc.updateProfile>[0]);
       toast.success('Profile updated!');
       setShowEditProfile(false);
       await fetchProfile();
@@ -181,7 +181,7 @@ export default function ProfilePage() {
   const handleDeleteAccount = async () => {
     setDeleting(true);
     try {
-      await accountApi.deleteAccount();
+      await accountRpc.deleteAccount();
       toast.success('Account deleted');
       logout();
       router.push('/');

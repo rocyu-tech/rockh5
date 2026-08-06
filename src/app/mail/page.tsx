@@ -5,7 +5,8 @@ import { Mail, MailOpen, Trash2, Download, Loader2, AlertCircle, ChevronDown, Ch
 import Navbar from '@/components/Navbar';
 import { useAppStore } from '@/store/app';
 import { Button } from '@/components/ui/button';
-import { mailApi, MailItem } from '@/lib/api';
+import { MailItem } from '@/lib/api';
+import { mailRpc } from '@/lib/rpc';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/api-status';
 
@@ -18,9 +19,8 @@ export default function MailPage() {
 
   const fetchMails = useCallback(async () => {
     try {
-      const res = await mailApi.getMailbox();
+      const data = await mailRpc.getMailbox();
       // Proto returns {mails: [...]}, map to flat array for the page
-      const data = res.data as Record<string, unknown> | undefined;
       const list = data?.mails || data?.list;
       setMails(Array.isArray(list) ? list : []);
     } catch (err) {
@@ -40,7 +40,7 @@ export default function MailPage() {
     setExpandedId(mail.mail_id);
     if (mail.read_flag === 0) {
       try {
-        await mailApi.readMail(mail.mail_id);
+        await mailRpc.readMail(mail.mail_id);
         setMails(prev => prev.map(m =>
           m.mail_id === mail.mail_id ? { ...m, read_flag: 1 } : m
         ));
@@ -51,7 +51,7 @@ export default function MailPage() {
   const handleClaimAttachment = async (mailId: number) => {
     setClaimingId(mailId);
     try {
-      await mailApi.claimMailAttachment(mailId);
+      await mailRpc.claimMailAttachment(mailId);
       toast.success('Attachments claimed!');
       await fetchMails();
     } catch (err) {
@@ -63,7 +63,7 @@ export default function MailPage() {
 
   const handleDelete = async (ids: number[]) => {
     try {
-      await mailApi.deleteMail(ids);
+      await mailRpc.deleteMail(ids);
       toast.success(`Deleted ${ids.length} mail(s)`);
       setSelectedIds(new Set());
       await fetchMails();

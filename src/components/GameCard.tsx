@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Play, Flame, Star, Sparkles, Heart } from 'lucide-react';
-import { gameApi, type Game } from '@/lib/api';
+import { type Game } from '@/lib/api';
+import { gameRpc } from '@/lib/rpc';
 import { getErrorMessage } from '@/lib/api-status';
 import { useAuthStore } from '@/store/auth';
 import { useAppStore } from '@/store/app';
@@ -52,8 +53,7 @@ export default function GameCard({ game }: GameCardProps) {
     }
     setLaunching(true);
     try {
-      const res = await gameApi.launch(game.id);
-      const data = res.data;
+      const data = await gameRpc.launch(game.id);
       const gameUrl = data?.launch_url || data?.game_url;
 
       // P0: self-developed games navigate to internal H5 page (e.g. /play/slot/xxx)
@@ -82,9 +82,9 @@ export default function GameCard({ game }: GameCardProps) {
       return;
     }
     try {
-      const res = await gameApi.toggleFavorite(game.id);
-      setIsFavorite(res.data.is_favorite);
-      toast.success(res.data.is_favorite ? 'Added to favorites' : 'Removed from favorites');
+      const res = await gameRpc.toggleFavorite(game.id);
+      setIsFavorite(res.is_favorite);
+      toast.success(res.is_favorite ? 'Added to favorites' : 'Removed from favorites');
     } catch (err) {
       toast.error(getErrorMessage(err));
     }

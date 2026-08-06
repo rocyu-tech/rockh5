@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { shopApi, type Order } from '@/lib/api';
+import { type Order } from '@/lib/api';
+import { shopRpc } from '@/lib/rpc';
 import { getErrorMessage } from "@/lib/api-status";
 import { toast } from "sonner";
 import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
@@ -58,8 +59,7 @@ export default function TransactionHistory({ open, onOpenChange }: TransactionHi
     try {
       const params: Record<string, unknown> = { page: p, page_size: pageSize };
       if (f !== 'all') params.type = f;
-      const res = await shopApi.getOrders(params as { page?: number; page_size?: number });
-      const { orders, total } = res.data;
+      const { orders, total } = await shopRpc.getOrders(params as { page?: number; page_size?: number });
       setTransactions(orders);
       setTotalPages(Math.max(1, Math.ceil(total / pageSize)));
     } catch (err) {

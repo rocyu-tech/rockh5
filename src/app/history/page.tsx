@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Coins, Loader2, Filter, History as HistoryIcon, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useLocale } from '@/i18n/provider';
-import { historyApi } from '@/lib/api';
+import { historyRpc } from '@/lib/rpc';
 import { useAuthStore } from '@/store/auth';
 import Navbar from '@/components/Navbar';
 import { toast } from 'sonner';
@@ -86,8 +86,7 @@ export default function HistoryPage() {
     if (append) setLoadingMore(true); else setLoading(true);
     setError(null);
     try {
-      const res = await historyApi.list({ type: filterType, page: pageNum, page_size: 20 });
-      const data = res.data;
+      const data = await historyRpc.list({ type: filterType, page: pageNum, page_size: 20 });
       if (!data) throw new Error('No data');
       setItems(prev => append ? [...prev, ...data.list] : data.list);
       setHasMore(data.has_more);

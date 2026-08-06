@@ -5,7 +5,8 @@ import { CheckCircle2, Gift, Trophy, Zap, Clock, Star, Target, ChevronRight, Loa
 import Navbar from '@/components/Navbar';
 import { useAppStore } from '@/store/app';
 import { Button } from '@/components/ui/button';
-import { taskApi, TaskTypeState, TaskItem } from '@/lib/api';
+import { TaskTypeState, TaskItem } from '@/lib/api';
+import { taskRpc } from '@/lib/rpc';
 import { toast } from 'sonner';
 import { getErrorMessage } from "@/lib/api-status";
 
@@ -32,8 +33,7 @@ export default function TasksPage() {
 
   const fetchTasks = useCallback(async () => {
     try {
-      const res = await taskApi.getTaskConfig();
-      setTaskStates(res);
+      setTaskStates(await taskRpc.getTaskConfig() as TaskTypeState[]);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -46,8 +46,8 @@ export default function TasksPage() {
   const handleClaim = async (taskId: number) => {
     setClaimingId(taskId);
     try {
-      const res = await taskApi.claimReward(taskId);
-      toast.success(`Received: ${res.data.item_name} x${res.data.quantity}`);
+      const res = await taskRpc.claimReward(taskId);
+      toast.success(`Received: ${res.item_name} x${res.quantity}`);
       await fetchTasks();
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -58,8 +58,8 @@ export default function TasksPage() {
 
   const handleClaimAll = async (taskType: number) => {
     try {
-      const res = await taskApi.claimAllRewards(taskType);
-      toast.success(`Claimed ${res.data.count} rewards!`);
+      const res = await taskRpc.claimAllRewards(taskType);
+      toast.success(`Claimed ${res.count} rewards!`);
       await fetchTasks();
     } catch (err) {
       toast.error(getErrorMessage(err));

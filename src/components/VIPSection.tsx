@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { Crown, Shield, Star, Diamond, Gem, Zap, Trophy, Award, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
-import { vipApi } from '@/lib/api';
+import { vipRpc } from '@/lib/rpc';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
 import DemoBadge from '@/components/DemoBadge';
 import type { VIPLevel } from '@/lib/api';
@@ -71,16 +71,16 @@ export default function VIPSection() {
   const apiStatus = useApiStatusContext();
 
   useEffect(() => {
-    vipApi.getLevels().then((res) => {
-      const list = res.data?.levels;
+    vipRpc.getLevels().then((res) => {
+      const list = res?.levels;
       if (list?.length) setLevels(list);
     }).catch((err) => {
       setUsingDemo(true);
       apiStatus.markFailed('vip/levels', getErrorMessage(err));
     });
     if (isLoggedIn) {
-      vipApi.getInfo().then((res) => {
-        if (res.data) setVipInfo(res.data);
+      vipRpc.getInfo().then((res) => {
+        if (res) setVipInfo(res);
       }).catch((err) => {
         apiStatus.markFailed('vip/info', getErrorMessage(err));
       });

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, AlertCircle, RefreshCw } from 'lucide-react';
-import { lobbyApi, type Banner } from '@/lib/api';
+import { type Banner } from '@/lib/api';
+import { lobbyRpc } from '@/lib/rpc';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
 
 const bannerGradients = [
@@ -20,8 +21,8 @@ export default function BannerCarousel() {
 
   const fetchBanners = useCallback(() => {
     setLoadError(false);
-    lobbyApi.getBanners().then((res) => {
-      const list = res.data?.banners;
+    lobbyRpc.getBanners().then((res) => {
+      const list = res?.banners;
       if (list?.length) {
         setBanners(list);
       }

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { activityApi, type Activity } from '@/lib/api';
+import { type Activity } from '@/lib/api';
+import { activityRpc } from '@/lib/rpc';
 import { useApiStatusContext, getErrorMessage } from '@/lib/api-status';
 import DemoBadge from '@/components/DemoBadge';
 import { Gift, ExternalLink, Clock, Flame, RotateCw } from 'lucide-react';
@@ -84,8 +85,8 @@ export default function PromotionsSection({ onSpinClick }: PromotionsSectionProp
   const apiStatus = useApiStatusContext();
 
   useEffect(() => {
-    activityApi.getList().then((res) => {
-      const list = res.data?.activities;
+    activityRpc.getList().then((res) => {
+      const list = res?.activities;
       if (list?.length) {
         setActivities(list as unknown as Activity[]);
       }

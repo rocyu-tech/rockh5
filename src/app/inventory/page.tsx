@@ -5,7 +5,8 @@ import { useAuthStore } from '@/store/auth';
 import { useAppStore } from '@/store/app';
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
-import { itemApi, InventoryItem } from '@/lib/api';
+import { InventoryItem } from '@/lib/api';
+import { itemRpc } from '@/lib/rpc';
 import { getErrorMessage } from '@/lib/api-status';
 import { Package, RefreshCw, Loader2, Zap, Clock, Shield } from 'lucide-react';
 
@@ -41,8 +42,7 @@ export default function InventoryPage() {
 
   const fetchInventory = useCallback(async () => {
     try {
-      const res = await itemApi.getInventory();
-      const data = res.data;
+      const data = await itemRpc.getInventory();
       const items = data?.items;
       if (Array.isArray(items)) {
         setItems(items);
@@ -71,7 +71,7 @@ export default function InventoryPage() {
     if (usingId) return;
     setUsingId(item.item_id);
     try {
-      await itemApi.useItem({ item_id: item.item_id, quantity: 1 });
+      await itemRpc.useItem({ item_id: item.item_id, quantity: 1 });
       await fetchInventory();
       // P0-9 FIX: previously called apiStatus.showSuccess?.() / showError?.()
       // which don't exist on the useApiStatus hook return object — the

@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Crown, Sparkles, CheckCircle2, Loader2, Coins, TrendingUp, Gift, ChevronRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useLocale } from '@/i18n/provider';
-import { vipApi, activityApi } from '@/lib/api';
+import { vipRpc, activityRpc } from '@/lib/rpc';
 import { getErrorMessage } from '@/lib/api-status';
 import { useAuthStore } from '@/store/auth';
 import { toast } from 'sonner';
@@ -75,20 +75,20 @@ export default function VIPPage() {
       setLoading(true);
       try {
         // Fetch levels in the current UI language; backend supports en/zh/vi/th.
-        const levelsRes = await vipApi.getLevels(locale);
-        const levelsList = levelsRes.data?.levels;
+        const levelsRes = await vipRpc.getLevels(locale);
+        const levelsList = levelsRes?.levels;
         if (!cancelled && levelsList?.length) {
           setLevels(levelsList);
         }
         if (isLoggedIn) {
           const [infoRes, stateRes] = await Promise.all([
-            vipApi.getInfo(),
-            activityApi.getCheckInState(),
+            vipRpc.getInfo(),
+            activityRpc.getCheckInState(),
           ]);
           if (!cancelled) {
-            if (infoRes.data) setInfo(infoRes.data);
+            if (infoRes) setInfo(infoRes);
             // Backend returns `checked_today`; older docs mention `checked_in` — accept both.
-            const sd = stateRes.data as { checked_today?: boolean; checked_in?: boolean } | undefined;
+            const sd = stateRes as { checked_today?: boolean; checked_in?: boolean } | undefined;
             if (sd) setCheckedIn(!!(sd.checked_today ?? sd.checked_in));
           }
         }
@@ -108,7 +108,7 @@ export default function VIPPage() {
     if (checkingIn || checkedIn) return;
     setCheckingIn(true);
     try {
-      await activityApi.checkIn();
+      await activityRpc.checkIn();
       setCheckedIn(true);
       toast.success(locale === 'zh' ? '签到成功！' : 'Checked in!');
     } catch (err: unknown) {

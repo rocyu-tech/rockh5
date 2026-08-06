@@ -6,7 +6,8 @@ import Navbar from '@/components/Navbar';
 import GameCategories from '@/components/GameCategories';
 import GameGrid from '@/components/GameGrid';
 import GameCard from '@/components/GameCard';
-import { gameApi, Game } from '@/lib/api';
+import { Game } from '@/lib/api';
+import { gameRpc } from '@/lib/rpc';
 import { getErrorMessage } from '@/lib/api-status';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth';
@@ -22,8 +23,8 @@ export default function GamesPage() {
     if (!isLoggedIn) return;
     setLoadingRecent(true);
     try {
-      const res = await gameApi.getRecentGames();
-      setRecentGames(res.data?.list || []);
+      const res = await gameRpc.getRecentGames();
+      setRecentGames(res?.list || []);
     } catch (err) { console.warn('[games] fetch recent failed:', err); toast.error(getErrorMessage(err)); }
     finally { setLoadingRecent(false); }
   }, [isLoggedIn]);

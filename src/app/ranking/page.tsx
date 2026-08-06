@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Trophy, Medal, Crown, TrendingUp, Loader2, AlertCircle } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { useAppStore } from '@/store/app';
-import { rankApi, RankItem } from '@/lib/api';
+import { RankItem } from '@/lib/api';
+import { rankRpc } from '@/lib/rpc';
 import { getErrorMessage } from '@/lib/api-status';
 import { toast } from 'sonner';
 
@@ -31,11 +32,11 @@ export default function RankingPage() {
     setLoading(true);
     try {
       const [listRes, myRes] = await Promise.all([
-        rankApi.getRankList(rankType, period),
-        rankApi.getMyRank(rankType),
+        rankRpc.getRankList(rankType, period),
+        rankRpc.getMyRank(rankType),
       ]);
-      setRankList(listRes.data?.rank_list || []);
-      setMyRank(myRes.data?.my_rank || null);
+      setRankList(listRes?.rank_list || []);
+      setMyRank(myRes?.my_rank || null);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {

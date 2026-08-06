@@ -7,7 +7,7 @@ import PromotionsSection from '@/components/PromotionsSection';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/auth';
 import { useAppStore } from '@/store/app';
-import { activityApi } from '@/lib/api';
+import { activityRpc } from '@/lib/rpc';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/api-status';
 
@@ -22,11 +22,11 @@ export default function PromotionsPage() {
     if (!isLoggedIn) return;
     try {
       const [checkInRes, giftRes] = await Promise.all([
-        activityApi.getCheckInState().catch((err) => { toast.error(getErrorMessage(err)); return null; }),
-        activityApi.getTimedGiftStatus().catch((err) => { toast.error(getErrorMessage(err)); return null; }),
+        activityRpc.getCheckInState().catch((err) => { toast.error(getErrorMessage(err)); return null; }),
+        activityRpc.getTimedGiftStatus().catch((err) => { toast.error(getErrorMessage(err)); return null; }),
       ]);
-      if (checkInRes) setCheckInState(checkInRes.data);
-      if (giftRes) setTimedGift(giftRes.data);
+      if (checkInRes) setCheckInState(checkInRes);
+      if (giftRes) setTimedGift(giftRes);
     } catch (err) { console.warn('[promotions] fetch states failed:', err); toast.error(getErrorMessage(err)); }
   }, [isLoggedIn]);
 
@@ -39,8 +39,8 @@ export default function PromotionsPage() {
     }
     setCheckingIn(true);
     try {
-      const res = await activityApi.checkIn();
-      toast.success(`Checked in! +${res.data.bonus_amount} bonus (${res.data.consecutive_days} day streak)`);
+      const res = await activityRpc.checkIn();
+      toast.success(`Checked in! +${res.bonus_amount} bonus (${res.consecutive_days} day streak)`);
       await fetchStates();
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -56,8 +56,8 @@ export default function PromotionsPage() {
     }
     setClaimingGift(true);
     try {
-      const res = await activityApi.claimTimedGift();
-      toast.success(`Received: ${res.data.item_name} x${res.data.quantity}!`);
+      const res = await activityRpc.claimTimedGift();
+      toast.success(`Received: ${res.item_name} x${res.quantity}!`);
       await fetchStates();
     } catch (err) {
       toast.error(getErrorMessage(err));

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useAuthStore } from '@/store/auth';
-import { accountApi } from '@/lib/api';
 import { User, Wallet, Mail, Calendar, Crown, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { fmtMoney, fmtMoneyPlain } from '@/lib/money';
