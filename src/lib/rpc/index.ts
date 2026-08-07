@@ -16,7 +16,7 @@ import { toPlain } from "./helpers";
 // ── Service name constants ─────────────────────────────────────────────
 const SHOP = "rockgame.shop.ShopService";
 const GAME_MANAGER = "rockgame.gamemanager.GameManagerService";
-const LOBBY = "rockgame.lobby.LobbyService";
+const LOBBY_SESSION = "rockgame.lobbysession.LobbySessionService";
 const ACCOUNT = "rockgame.account.AccountService";
 const ACTIVITY = "rockgame.activity.ActivityService";
 const USER = "rockgame.user.UserService";
@@ -52,7 +52,7 @@ import {
   GetGameVendorsRequest, GameVendorsResponse,
   SearchGamesRequest, SearchGamesResponse,
 } from "@/proto/game_manager_pb";
-// ── Message types (LobbyService — session + user state) ────────────────
+// ── Message types (LobbySessionService — session + user state) ────────────────
 import {
   GetRecentGamesRequest, RecentGamesResponse,
   ToggleFavoriteRequest, ToggleFavoriteResponse,
@@ -61,7 +61,7 @@ import {
   LaunchSelfGameRequest, LaunchSelfGameResponse,
   GetReddotStateRequest, ReddotStateResponse,
   MarkReddotReadRequest, MarkReddotReadResponse,
-} from "@/proto/lobby_pb";
+} from "@/proto/lobby_session_pb";
 import {
   GetProfileRequest, GetProfileResponse,
   GetAssetsRequest, GetAssetsResponse,
@@ -236,22 +236,22 @@ export const lobbyRpc = {
     rpc(GAME_MANAGER, "SearchGames",
       new SearchGamesRequest({ keyword, limit: pageSize ?? 20 }), SearchGamesResponse),
 
-  // User-state RPCs (still under lobbyRpc for backward compat)
+  // User-state RPCs (LobbySessionService)
   getRecentGames: () =>
-    rpc(LOBBY, "GetRecentGames", new GetRecentGamesRequest(), RecentGamesResponse),
+    rpc(LOBBY_SESSION, "GetRecentGames", new GetRecentGamesRequest(), RecentGamesResponse),
 
   endSession: (sessionId: string) =>
-    rpc(LOBBY, "EndGameSession",
+    rpc(LOBBY_SESSION, "EndGameSession",
       new EndGameSessionRequest({ sessionToken: sessionId }), EndGameSessionResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
-// Game History RPCs  (rockgame.lobby.LobbyService)
+// Game History RPCs  (rockgame.lobbysession.LobbySessionService)
 // ═══════════════════════════════════════════════════════════════════════
 
 export const historyRpc = {
   list: (params: { type?: string; page?: number; page_size?: number } = {}) =>
-    rpc(LOBBY, "GetGameHistory",
+    rpc(LOBBY_SESSION, "GetGameHistory",
       new GetGameHistoryRequest({
         type: params.type ?? "",
         page: params.page ?? 1,
@@ -260,20 +260,20 @@ export const historyRpc = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════
-// Game Session RPCs  (rockgame.lobby.LobbyService)
+// Game Session RPCs  (rockgame.lobbysession.LobbySessionService)
 // ═══════════════════════════════════════════════════════════════════════
 
 export const gameRpc = {
   launch: (id: number) =>
-    rpc(LOBBY, "LaunchSelfGame",
+    rpc(LOBBY_SESSION, "LaunchSelfGame",
       new LaunchSelfGameRequest({ id: BigInt(id) }), LaunchSelfGameResponse),
 
   toggleFavorite: (gameId: number) =>
-    rpc(LOBBY, "ToggleFavorite",
+    rpc(LOBBY_SESSION, "ToggleFavorite",
       new ToggleFavoriteRequest({ gameId: BigInt(gameId) }), ToggleFavoriteResponse),
 
   getRecentGames: () =>
-    rpc(LOBBY, "GetRecentGames", new GetRecentGamesRequest(), RecentGamesResponse),
+    rpc(LOBBY_SESSION, "GetRecentGames", new GetRecentGamesRequest(), RecentGamesResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -502,14 +502,14 @@ export const agentRpc = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════
-// Reddot RPCs  (rockgame.lobby.LobbyService)
+// Reddot RPCs  (rockgame.lobbysession.LobbySessionService)
 // ═══════════════════════════════════════════════════════════════════════
 
 export const reddotRpc = {
   getReddots: () =>
-    rpc(LOBBY, "GetReddotState", new GetReddotStateRequest(), ReddotStateResponse),
+    rpc(LOBBY_SESSION, "GetReddotState", new GetReddotStateRequest(), ReddotStateResponse),
 
   markAsRead: (category: string) =>
-    rpc(LOBBY, "MarkReddotRead",
+    rpc(LOBBY_SESSION, "MarkReddotRead",
       new MarkReddotReadRequest({ category }), MarkReddotReadResponse),
 };
