@@ -15,13 +15,14 @@ import { toPlain } from "./helpers";
 
 // ── Service name constants ─────────────────────────────────────────────
 const SHOP = "rockgame.shop.ShopService";
+const GAME_MANAGER = "rockgame.gamemanager.GameManagerService";
 const LOBBY = "rockgame.lobby.LobbyService";
 const ACCOUNT = "rockgame.account.AccountService";
 const ACTIVITY = "rockgame.activity.ActivityService";
 const USER = "rockgame.user.UserService";
 const AGENT = "rockgame.agent.AgentService";
 const RANK = "rockgame.rank.RankService";
-const VIP = "rockgame.vip.VIPService";
+const VIP = "rockgame.user.UserService";
 
 // ── Message types ─────────────────────────────────────────────────────
 import {
@@ -41,6 +42,7 @@ import {
   GetDepositProductsRequest, ShopProductsResponse,
   GetWithdrawProductsRequest, ShopProductsResponse as WithdrawProductsResponse,
 } from "@/proto/shop_pb";
+// ── Message types (GameManagerService — data queries) ──────────────────
 import {
   GetLobbyBannersRequest, LobbyBannersResponse,
   GetLobbyCategoriesRequest, LobbyCategoriesResponse,
@@ -48,8 +50,11 @@ import {
   GetLobbyConfigRequest, LobbyConfigResponse,
   GetLobbySplashRequest, LobbySplashResponse,
   GetGameVendorsRequest, GameVendorsResponse,
-  GetRecentGamesRequest, RecentGamesResponse,
   SearchGamesRequest, SearchGamesResponse,
+} from "@/proto/game_manager_pb";
+// ── Message types (LobbyService — session + user state) ────────────────
+import {
+  GetRecentGamesRequest, RecentGamesResponse,
   ToggleFavoriteRequest, ToggleFavoriteResponse,
   GetGameHistoryRequest, GameHistoryResponse,
   EndGameSessionRequest, EndGameSessionResponse,
@@ -198,18 +203,18 @@ export const shopRpc = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════
-// Lobby RPCs  (rockgame.lobby.LobbyService)
+// Game Manager RPCs  (rockgame.gamemanager.GameManagerService)
 // ═══════════════════════════════════════════════════════════════════════
 
 export const lobbyRpc = {
   getBanners: () =>
-    rpc(LOBBY, "GetLobbyBanners", new GetLobbyBannersRequest(), LobbyBannersResponse),
+    rpc(GAME_MANAGER, "GetLobbyBanners", new GetLobbyBannersRequest(), LobbyBannersResponse),
 
   getCategories: () =>
-    rpc(LOBBY, "GetLobbyCategories", new GetLobbyCategoriesRequest(), LobbyCategoriesResponse),
+    rpc(GAME_MANAGER, "GetLobbyCategories", new GetLobbyCategoriesRequest(), LobbyCategoriesResponse),
 
   getGames: (params?: { category_id?: number; vendor_id?: number; keyword?: string; page?: number; page_size?: number }) =>
-    rpc(LOBBY, "GetLobbyGames",
+    rpc(GAME_MANAGER, "GetLobbyGames",
       new GetLobbyGamesRequest({
         categoryId: String(params?.category_id ?? ""),
         vendorId: String(params?.vendor_id ?? ""),
@@ -219,24 +224,21 @@ export const lobbyRpc = {
       }), LobbyGamesResponse),
 
   getConfig: () =>
-    rpc(LOBBY, "GetLobbyConfig", new GetLobbyConfigRequest(), LobbyConfigResponse),
+    rpc(GAME_MANAGER, "GetLobbyConfig", new GetLobbyConfigRequest(), LobbyConfigResponse),
 
   getSplash: () =>
-    rpc(LOBBY, "GetLobbySplash", new GetLobbySplashRequest(), LobbySplashResponse),
+    rpc(GAME_MANAGER, "GetLobbySplash", new GetLobbySplashRequest(), LobbySplashResponse),
 
   getVendors: () =>
-    rpc(LOBBY, "GetGameVendors", new GetGameVendorsRequest(), GameVendorsResponse),
-
-  getRecentGames: () =>
-    rpc(LOBBY, "GetRecentGames", new GetRecentGamesRequest(), RecentGamesResponse),
+    rpc(GAME_MANAGER, "GetGameVendors", new GetGameVendorsRequest(), GameVendorsResponse),
 
   searchGames: (keyword: string, page?: number, pageSize?: number) =>
-    rpc(LOBBY, "SearchGames",
+    rpc(GAME_MANAGER, "SearchGames",
       new SearchGamesRequest({ keyword, limit: pageSize ?? 20 }), SearchGamesResponse),
 
-  toggleFavorite: (gameId: number) =>
-    rpc(LOBBY, "ToggleFavorite",
-      new ToggleFavoriteRequest({ gameId: BigInt(gameId) }), ToggleFavoriteResponse),
+  // User-state RPCs (still under lobbyRpc for backward compat)
+  getRecentGames: () =>
+    rpc(LOBBY, "GetRecentGames", new GetRecentGamesRequest(), RecentGamesResponse),
 
   endSession: (sessionId: string) =>
     rpc(LOBBY, "EndGameSession",
@@ -258,7 +260,7 @@ export const historyRpc = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════
-// Game RPCs  (rockgame.lobby.LobbyService — game launch/favorites)
+// Game Session RPCs  (rockgame.lobby.LobbyService)
 // ═══════════════════════════════════════════════════════════════════════
 
 export const gameRpc = {
