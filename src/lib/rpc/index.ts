@@ -1,121 +1,124 @@
 /**
- * Connect/gRPC-Web RPC layer — drop-in replacement for axios API calls.
+ * WS RPC layer — generic protobuf RPC over WebSocket.
  *
- * Each namespace mirrors the shape in api.ts but calls via Connect protocol
- * through Gate's connectproxy. Returns plain objects (snake_case, number values)
- * so callers only need to change import path and remove `.data` accessor.
+ * Each namespace keeps the same export API as the previous Connect RPC layer
+ * so page components don't need to change.
  *
  * Auth (login/register/refresh/logout) stays in api.ts as REST.
  * Upload (accountApi.uploadAvatar) stays in api.ts (binary FormData).
+ * Game sessions stay as raw WebSocket to /ws/v1/.
  */
 
-import { createClient } from "@connectrpc/connect";
-import { grpcTransport } from "@/lib/grpc-transport";
+import { toBinary, fromBinary } from "@bufbuild/protobuf";
+import { getWSRpcTransport } from "@/lib/ws-rpc-transport";
 import { toPlain } from "./helpers";
 
-// ── Service definitions ────────────────────────────────────────────────
-import { ShopService } from "@/proto/shop_connect";
-import { LobbyService } from "@/proto/lobby_connect";
-import { AccountService } from "@/proto/account_connect";
-import { ActivityService } from "@/proto/activity_connect";
-import { UserService } from "@/proto/user_connect";
-import { AgentService } from "@/proto/agent_connect";
-import { RankService } from "@/proto/rank_connect";
-import { VIPService } from "@/proto/vip_connect";
+// ── Service name constants ─────────────────────────────────────────────
+const SHOP = "rockgame.shop.ShopService";
+const LOBBY = "rockgame.lobby.LobbyService";
+const ACCOUNT = "rockgame.account.AccountService";
+const ACTIVITY = "rockgame.activity.ActivityService";
+const USER = "rockgame.user.UserService";
+const AGENT = "rockgame.agent.AgentService";
+const RANK = "rockgame.rank.RankService";
+const VIP = "rockgame.vip.VIPService";
 
-// ── Message types (requests) ─────────────────────────────────────────
+// ── Message types ─────────────────────────────────────────────────────
 import {
-  GetShopWalletRequest,
-  GetPaymentChannelsRequest,
-  GetWithdrawChannelsRequest,
-  CreateRechargeRequest,
-  CreateWithdrawRequest,
-  GetOrdersRequest,
-  GetPaymentAccountsRequest,
-  SavePaymentAccountRequest,
-  SetWithdrawPasswordRequest,
-  GetPaymentMethodsRequest,
-  GetWithdrawMethodsRequest,
-  GetDepositAmountOptionsRequest,
-  GetWithdrawAmountOptionsRequest,
-  GetDepositProductsRequest,
-  GetWithdrawProductsRequest,
+  GetShopWalletRequest, ShopWalletResponse,
+  GetPaymentChannelsRequest, PaymentChannelsResponse,
+  GetWithdrawChannelsRequest, WithdrawChannelsResponse,
+  CreateRechargeRequest, CreateRechargeResponse,
+  CreateWithdrawRequest, CreateWithdrawResponse,
+  GetOrdersRequest, OrdersResponse,
+  GetPaymentAccountsRequest, PaymentAccountsResponse,
+  SavePaymentAccountRequest, SavePaymentAccountResponse,
+  SetWithdrawPasswordRequest, SetWithdrawPasswordResponse,
+  GetPaymentMethodsRequest, PaymentMethodsResponse,
+  GetWithdrawMethodsRequest, PaymentMethodsResponse,
+  GetDepositAmountOptionsRequest, AmountOptionsResponse,
+  GetWithdrawAmountOptionsRequest, AmountOptionsResponse as WithdrawAmountOptionsResponse,
+  GetDepositProductsRequest, ShopProductsResponse,
+  GetWithdrawProductsRequest, ShopProductsResponse as WithdrawProductsResponse,
 } from "@/proto/shop_pb";
 import {
-  GetLobbyBannersRequest,
-  GetLobbyCategoriesRequest,
-  GetLobbyGamesRequest,
-  GetLobbyConfigRequest,
-  GetLobbySplashRequest,
-  GetGameVendorsRequest,
-  GetRecentGamesRequest,
-  SearchGamesRequest,
-  ToggleFavoriteRequest,
-  GetGameHistoryRequest,
-  EndGameSessionRequest,
-  GetReddotStateRequest,
-  MarkReddotReadRequest,
+  GetLobbyBannersRequest, LobbyBannersResponse,
+  GetLobbyCategoriesRequest, LobbyCategoriesResponse,
+  GetLobbyGamesRequest, LobbyGamesResponse,
+  GetLobbyConfigRequest, LobbyConfigResponse,
+  GetLobbySplashRequest, LobbySplashResponse,
+  GetGameVendorsRequest, GameVendorsResponse,
+  GetRecentGamesRequest, RecentGamesResponse,
+  SearchGamesRequest, SearchGamesResponse,
+  ToggleFavoriteRequest, ToggleFavoriteResponse,
+  GetGameHistoryRequest, GameHistoryResponse,
+  EndGameSessionRequest, EndGameSessionResponse,
+  LaunchSelfGameRequest, LaunchSelfGameResponse,
+  GetReddotStateRequest, ReddotStateResponse,
+  MarkReddotReadRequest, MarkReddotReadResponse,
 } from "@/proto/lobby_pb";
 import {
-  GetProfileRequest,
-  GetAssetsRequest,
-  UpdateProfileRequest,
-  ChangePasswordRequest,
-  DeleteAccountRequest,
+  GetProfileRequest, GetProfileResponse,
+  GetAssetsRequest, GetAssetsResponse,
+  UpdateProfileRequest, UpdateProfileResponse,
+  ChangePasswordRequest, ChangePasswordResponse,
+  DeleteAccountRequest, DeleteAccountResponse,
 } from "@/proto/account_pb";
 import {
-  ListActivitiesRequest,
-  CheckInRequest,
-  GetCheckInStateRequest,
-  GetCheckInConfigRequest,
-  ClaimRechargeBonusRequest,
-  ClaimTimedGiftRequest,
-  GetTimedGiftStatusRequest,
-  SpinWheelRequest,
-  GetWheelStateRequest,
-  GetWheelConfigRequest,
+  ListActivitiesRequest, ActivitiesResponse,
+  CheckInRequest, CheckInResponse,
+  GetCheckInStateRequest, CheckInStateResponse,
+  GetCheckInConfigRequest, CheckInConfigResponse,
+  ClaimRechargeBonusRequest, ClaimRechargeBonusResponse as ActivityClaimRechargeBonusResponse,
+  ClaimTimedGiftRequest, ClaimTimedGiftResponse,
+  GetTimedGiftStatusRequest, TimedGiftStatusResponse,
+  SpinWheelRequest, SpinWheelResponse,
+  GetWheelStateRequest, WheelStateResponse,
+  GetWheelConfigRequest, WheelConfigResponse,
 } from "@/proto/activity_pb";
 import {
-  GetVipLevelsRequest,
-  GetVipInfoRequest,
-  GetInventoryRequest,
-  GetItemDefineListRequest,
-  UseItemRequest,
-  TransferItemRequest,
-  GetDailyTasksRequest,
-  GetWeeklyTasksRequest,
-  GetGrowthTasksRequest,
-  GetTaskProgressRequest,
-  ClaimTaskRequest,
-  GetInboxRequest,
-  ReadMailRequest,
-  ClaimAttachmentRequest,
-  GetUnreadCountRequest,
-  DeleteMailRequest,
+  GetVipLevelsRequest, VipLevelsResponse,
+  GetVipInfoRequest, VipInfoResponse,
+  GetInventoryRequest, InventoryResponse,
+  GetItemDefineListRequest, ItemDefineListResponse,
+  UseItemRequest, UseItemResponse,
+  TransferItemRequest, TransferItemResponse,
+  GetDailyTasksRequest, DailyTasksResponse,
+  GetWeeklyTasksRequest, WeeklyTasksResponse,
+  GetGrowthTasksRequest, GrowthTasksResponse,
+  GetTaskProgressRequest, TaskProgressResponse,
+  ClaimTaskRequest, ClaimTaskResponse,
+  GetInboxRequest, InboxResponse,
+  ReadMailRequest, ReadMailResponse,
+  ClaimAttachmentRequest, ClaimAttachmentResponse,
+  GetUnreadCountRequest, UnreadCountResponse,
+  DeleteMailRequest, DeleteMailResponse,
 } from "@/proto/user_pb";
 import {
-  GetAgentInfoRequest,
-  GetSubordinatesRequest,
-  GetCommissionsRequest,
-  RequestSettlementRequest,
-  CreatePromoLinkRequest,
-  GetAgentDashboardRequest,
+  GetAgentInfoRequest, AgentInfoResponse,
+  GetSubordinatesRequest, SubordinatesResponse,
+  GetCommissionsRequest, CommissionsResponse,
+  RequestSettlementRequest, RequestSettlementResponse,
+  CreatePromoLinkRequest, CreatePromoLinkResponse,
+  GetAgentDashboardRequest, AgentDashboardResponse,
 } from "@/proto/agent_pb";
 import {
-  GetRankListRequest,
-  GetMyRankRequest,
-  GetTopRanksRequest,
+  GetRankListRequest, RankListResponse,
+  GetMyRankRequest, MyRankResponse,
+  GetTopRanksRequest, TopRanksResponse,
 } from "@/proto/rank_pb";
+import type { Message, MessageType } from "@bufbuild/protobuf";
 
-// ── Clients ────────────────────────────────────────────────────────────
-const shopClient = createClient(ShopService, grpcTransport);
-const lobbyClient = createClient(LobbyService, grpcTransport);
-const accountClient = createClient(AccountService, grpcTransport);
-const activityClient = createClient(ActivityService, grpcTransport);
-const userClient = createClient(UserService, grpcTransport);
-const agentClient = createClient(AgentService, grpcTransport);
-const rankClient = createClient(RankService, grpcTransport);
-const vipClient = createClient(VIPService, grpcTransport);
+// ── Typed invoke helper ─────────────────────────────────────────────────
+
+function rpc<T extends Message>(
+  service: string,
+  method: string,
+  req: Message,
+  RespType: MessageType<T>,
+): Promise<ReturnType<typeof toPlain>> {
+  return getWSRpcTransport().invoke(service, method, req, RespType).then(toPlain);
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // Shop RPCs  (rockgame.shop.ShopService)
@@ -123,70 +126,75 @@ const vipClient = createClient(VIPService, grpcTransport);
 
 export const shopRpc = {
   getWallet: () =>
-    shopClient.getShopWallet(new GetShopWalletRequest()).then(toPlain),
+    rpc(SHOP, "GetShopWallet", new GetShopWalletRequest(), ShopWalletResponse),
 
   getPaymentChannels: () =>
-    shopClient.getPaymentChannels(new GetPaymentChannelsRequest()).then(toPlain),
+    rpc(SHOP, "GetPaymentChannels", new GetPaymentChannelsRequest(), PaymentChannelsResponse),
 
   getWithdrawChannels: () =>
-    shopClient.getWithdrawChannels(new GetWithdrawChannelsRequest()).then(toPlain),
+    rpc(SHOP, "GetWithdrawChannels", new GetWithdrawChannelsRequest(), WithdrawChannelsResponse),
 
   getPaymentMethods: () =>
-    shopClient.getPaymentMethods(new GetPaymentMethodsRequest()).then(toPlain),
+    rpc(SHOP, "GetPaymentMethods", new GetPaymentMethodsRequest(), PaymentMethodsResponse),
 
   getWithdrawMethods: () =>
-    shopClient.getWithdrawMethods(new GetWithdrawMethodsRequest()).then(toPlain),
+    rpc(SHOP, "GetWithdrawMethods", new GetWithdrawMethodsRequest(), PaymentMethodsResponse),
 
   recharge: (data: { channel_id: number; product_id?: number; amount?: number }) =>
-    shopClient.createRecharge(new CreateRechargeRequest({
-      channelId: BigInt(data.channel_id),
-      productId: BigInt(data.product_id ?? 0),
-      amount: BigInt(data.amount ?? 0),
-    })).then(toPlain),
+    rpc(SHOP, "CreateRecharge",
+      new CreateRechargeRequest({
+        channelId: BigInt(data.channel_id),
+        productId: BigInt(data.product_id ?? 0),
+        amount: BigInt(data.amount ?? 0),
+      }), CreateRechargeResponse),
 
   withdraw: (data: { channel_id: number; amount: number; account?: string; account_name?: string; withdraw_password?: string }) =>
-    shopClient.createWithdraw(new CreateWithdrawRequest({
-      channelId: BigInt(data.channel_id),
-      amount: BigInt(data.amount),
-      accountInfo: data.account ?? "",
-      withdrawPassword: data.withdraw_password ?? "",
-    })).then(toPlain),
+    rpc(SHOP, "CreateWithdraw",
+      new CreateWithdrawRequest({
+        channelId: BigInt(data.channel_id),
+        amount: BigInt(data.amount),
+        accountInfo: data.account ?? "",
+        withdrawPassword: data.withdraw_password ?? "",
+      }), CreateWithdrawResponse),
 
   getOrders: (params?: { type?: string; page?: number; page_size?: number }) =>
-    shopClient.getOrders(new GetOrdersRequest({
-      type: params?.type ?? "",
-      page: params?.page ?? 1,
-      pageSize: params?.page_size ?? 20,
-    })).then(toPlain),
+    rpc(SHOP, "GetOrders",
+      new GetOrdersRequest({
+        type: params?.type ?? "",
+        page: params?.page ?? 1,
+        pageSize: params?.page_size ?? 20,
+      }), OrdersResponse),
 
   getPaymentAccounts: () =>
-    shopClient.getPaymentAccounts(new GetPaymentAccountsRequest()).then(toPlain),
+    rpc(SHOP, "GetPaymentAccounts", new GetPaymentAccountsRequest(), PaymentAccountsResponse),
 
   setPaymentAccount: (data: { id?: number; account_type: number; title: string; account: string; code?: string; username?: string }) =>
-    shopClient.savePaymentAccount(new SavePaymentAccountRequest({
-      bankName: data.title,
-      accountNumber: data.account,
-      accountName: data.username ?? "",
-      type: String(data.account_type),
-    })).then(toPlain),
+    rpc(SHOP, "SavePaymentAccount",
+      new SavePaymentAccountRequest({
+        bankName: data.title,
+        accountNumber: data.account,
+        accountName: data.username ?? "",
+        type: String(data.account_type),
+      }), SavePaymentAccountResponse),
 
   setWithdrawPassword: (data: { old_pwd?: string; new_pwd: string }) =>
-    shopClient.setWithdrawPassword(new SetWithdrawPasswordRequest({
-      password: data.old_pwd ?? "",
-      newPassword: data.new_pwd,
-    })).then(toPlain),
+    rpc(SHOP, "SetWithdrawPassword",
+      new SetWithdrawPasswordRequest({
+        password: data.old_pwd ?? "",
+        newPassword: data.new_pwd,
+      }), SetWithdrawPasswordResponse),
 
   getWithdrawAmountOptions: () =>
-    shopClient.getWithdrawAmountOptions(new GetWithdrawAmountOptionsRequest()).then(toPlain),
+    rpc(SHOP, "GetWithdrawAmountOptions", new GetWithdrawAmountOptionsRequest(), WithdrawAmountOptionsResponse),
 
   getDepositAmountOptions: () =>
-    shopClient.getDepositAmountOptions(new GetDepositAmountOptionsRequest()).then(toPlain),
+    rpc(SHOP, "GetDepositAmountOptions", new GetDepositAmountOptionsRequest(), AmountOptionsResponse),
 
   getDepositProducts: () =>
-    shopClient.getDepositProducts(new GetDepositProductsRequest()).then(toPlain),
+    rpc(SHOP, "GetDepositProducts", new GetDepositProductsRequest(), ShopProductsResponse),
 
   getWithdrawProducts: () =>
-    shopClient.getWithdrawProducts(new GetWithdrawProductsRequest()).then(toPlain),
+    rpc(SHOP, "GetWithdrawProducts", new GetWithdrawProductsRequest(), WithdrawProductsResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -195,45 +203,44 @@ export const shopRpc = {
 
 export const lobbyRpc = {
   getBanners: () =>
-    lobbyClient.getLobbyBanners(new GetLobbyBannersRequest()).then(toPlain),
+    rpc(LOBBY, "GetLobbyBanners", new GetLobbyBannersRequest(), LobbyBannersResponse),
 
   getCategories: () =>
-    lobbyClient.getLobbyCategories(new GetLobbyCategoriesRequest()).then(toPlain),
+    rpc(LOBBY, "GetLobbyCategories", new GetLobbyCategoriesRequest(), LobbyCategoriesResponse),
 
   getGames: (params?: { category_id?: number; vendor_id?: number; keyword?: string; page?: number; page_size?: number }) =>
-    lobbyClient.getLobbyGames({
-      categoryId: String(params?.category_id ?? ""),
-      vendorId: String(params?.vendor_id ?? ""),
-      keyword: params?.keyword ?? "",
-      page: params?.page ?? 1,
-      pageSize: params?.page_size ?? 20,
-    }).then(toPlain),
+    rpc(LOBBY, "GetLobbyGames",
+      new GetLobbyGamesRequest({
+        categoryId: String(params?.category_id ?? ""),
+        vendorId: String(params?.vendor_id ?? ""),
+        keyword: params?.keyword ?? "",
+        page: params?.page ?? 1,
+        pageSize: params?.page_size ?? 20,
+      }), LobbyGamesResponse),
 
   getConfig: () =>
-    lobbyClient.getLobbyConfig(new GetLobbyConfigRequest()).then(toPlain),
+    rpc(LOBBY, "GetLobbyConfig", new GetLobbyConfigRequest(), LobbyConfigResponse),
 
   getSplash: () =>
-    lobbyClient.getLobbySplash(new GetLobbySplashRequest()).then(toPlain),
+    rpc(LOBBY, "GetLobbySplash", new GetLobbySplashRequest(), LobbySplashResponse),
 
   getVendors: () =>
-    lobbyClient.getGameVendors(new GetGameVendorsRequest()).then(toPlain),
+    rpc(LOBBY, "GetGameVendors", new GetGameVendorsRequest(), GameVendorsResponse),
 
   getRecentGames: () =>
-    lobbyClient.getRecentGames(new GetRecentGamesRequest()).then(toPlain),
+    rpc(LOBBY, "GetRecentGames", new GetRecentGamesRequest(), RecentGamesResponse),
 
   searchGames: (keyword: string, page?: number, pageSize?: number) =>
-    lobbyClient.searchGames(new SearchGamesRequest({
-      keyword,
-      limit: pageSize ?? 20,
-    })).then(toPlain),
+    rpc(LOBBY, "SearchGames",
+      new SearchGamesRequest({ keyword, limit: pageSize ?? 20 }), SearchGamesResponse),
 
   toggleFavorite: (gameId: number) =>
-    lobbyClient.toggleFavorite(new ToggleFavoriteRequest({
-      gameId: BigInt(gameId),
-    })).then(toPlain),
+    rpc(LOBBY, "ToggleFavorite",
+      new ToggleFavoriteRequest({ gameId: BigInt(gameId) }), ToggleFavoriteResponse),
 
   endSession: (sessionId: string) =>
-    lobbyClient.endGameSession(new EndGameSessionRequest({ sessionToken: sessionId })).then(toPlain),
+    rpc(LOBBY, "EndGameSession",
+      new EndGameSessionRequest({ sessionToken: sessionId }), EndGameSessionResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -242,11 +249,12 @@ export const lobbyRpc = {
 
 export const historyRpc = {
   list: (params: { type?: string; page?: number; page_size?: number } = {}) =>
-    lobbyClient.getGameHistory(new GetGameHistoryRequest({
-      type: params.type ?? "",
-      page: params.page ?? 1,
-      pageSize: params.page_size ?? 20,
-    })).then(toPlain),
+    rpc(LOBBY, "GetGameHistory",
+      new GetGameHistoryRequest({
+        type: params.type ?? "",
+        page: params.page ?? 1,
+        pageSize: params.page_size ?? 20,
+      }), GameHistoryResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -255,15 +263,15 @@ export const historyRpc = {
 
 export const gameRpc = {
   launch: (id: number) =>
-    lobbyClient.launchSelfGame({ id: BigInt(id) }).then(toPlain),
+    rpc(LOBBY, "LaunchSelfGame",
+      new LaunchSelfGameRequest({ id: BigInt(id) }), LaunchSelfGameResponse),
 
   toggleFavorite: (gameId: number) =>
-    lobbyClient.toggleFavorite(new ToggleFavoriteRequest({
-      gameId: BigInt(gameId),
-    })).then(toPlain),
+    rpc(LOBBY, "ToggleFavorite",
+      new ToggleFavoriteRequest({ gameId: BigInt(gameId) }), ToggleFavoriteResponse),
 
   getRecentGames: () =>
-    lobbyClient.getRecentGames(new GetRecentGamesRequest()).then(toPlain),
+    rpc(LOBBY, "GetRecentGames", new GetRecentGamesRequest(), RecentGamesResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -272,25 +280,24 @@ export const gameRpc = {
 
 export const accountRpc = {
   getProfile: () =>
-    accountClient.getProfile(new GetProfileRequest()).then(toPlain),
+    rpc(ACCOUNT, "GetProfile", new GetProfileRequest(), GetProfileResponse),
 
   getAssets: () =>
-    accountClient.getAssets(new GetAssetsRequest()).then(toPlain),
+    rpc(ACCOUNT, "GetAssets", new GetAssetsRequest(), GetAssetsResponse),
 
   updateProfile: (data: { nickname?: string; avatar?: string; language?: string; timezone?: string }) =>
-    accountClient.updateProfile(data).then(toPlain),
+    rpc(ACCOUNT, "UpdateProfile", data as any, UpdateProfileResponse),
 
   changePassword: (data: { old_password: string; new_password: string }) =>
-    accountClient.changePassword(new ChangePasswordRequest({
-      oldPassword: data.old_password,
-      newPassword: data.new_password,
-      confirmPassword: data.new_password,
-    })).then(toPlain),
+    rpc(ACCOUNT, "ChangePassword",
+      new ChangePasswordRequest({
+        oldPassword: data.old_password,
+        newPassword: data.new_password,
+        confirmPassword: data.new_password,
+      }), ChangePasswordResponse),
 
   deleteAccount: () =>
-    accountClient.deleteAccount(new DeleteAccountRequest()).then(toPlain),
-
-  // uploadAvatar stays in api.ts — requires multipart/form-data (not protobuf)
+    rpc(ACCOUNT, "DeleteAccount", new DeleteAccountRequest(), DeleteAccountResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -299,42 +306,38 @@ export const accountRpc = {
 
 export const activityRpc = {
   getList: () =>
-    activityClient.listActivities(new ListActivitiesRequest()).then(toPlain),
+    rpc(ACTIVITY, "ListActivities", new ListActivitiesRequest(), ActivitiesResponse),
 
   checkIn: () =>
-    activityClient.checkIn(new CheckInRequest()).then(toPlain),
+    rpc(ACTIVITY, "CheckIn", new CheckInRequest(), CheckInResponse),
 
   getCheckInState: () =>
-    activityClient.getCheckInState(new GetCheckInStateRequest()).then(toPlain),
+    rpc(ACTIVITY, "GetCheckInState", new GetCheckInStateRequest(), CheckInStateResponse),
 
   getCheckInConfig: () =>
-    activityClient.getCheckInConfig(new GetCheckInConfigRequest()).then(toPlain),
+    rpc(ACTIVITY, "GetCheckInConfig", new GetCheckInConfigRequest(), CheckInConfigResponse),
 
   claimRechargeBonus: () =>
-    activityClient.claimRechargeBonus(new ClaimRechargeBonusRequest()).then(toPlain),
+    rpc(ACTIVITY, "ClaimRechargeBonus", new ClaimRechargeBonusRequest(), ActivityClaimRechargeBonusResponse),
 
   claimTimedGift: () =>
-    activityClient.claimTimedGift(new ClaimTimedGiftRequest()).then(toPlain),
+    rpc(ACTIVITY, "ClaimTimedGift", new ClaimTimedGiftRequest(), ClaimTimedGiftResponse),
 
   getTimedGiftStatus: () =>
-    activityClient.getTimedGiftStatus(new GetTimedGiftStatusRequest()).then(toPlain),
+    rpc(ACTIVITY, "GetTimedGiftStatus", new GetTimedGiftStatusRequest(), TimedGiftStatusResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
-// VIP RPCs  (rockgame.user.UserService — VIP methods)
+// VIP RPCs  (rockgame.user.UserService)
 // ═══════════════════════════════════════════════════════════════════════
 
 export const vipRpc = {
   getLevels: (lang?: string) =>
-    userClient.getVipLevels(new GetVipLevelsRequest({ lang: lang ?? "" })).then(toPlain),
+    rpc(USER, "GetVipLevels",
+      new GetVipLevelsRequest({ lang: lang ?? "" }), VipLevelsResponse),
 
   getInfo: () =>
-    userClient.getVipInfo(new GetVipInfoRequest()).then(toPlain),
-
-  // NOTE: proto needs user_id but Gate injects x-user-id from auth cookie metadata,
-  // so the request body can be empty — the server reads user_id from context.
-  upgrade: () =>
-    vipClient.checkAndUpgrade({}).then(toPlain),
+    rpc(USER, "GetVipInfo", new GetVipInfoRequest(), VipInfoResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -343,14 +346,13 @@ export const vipRpc = {
 
 export const wheelRpc = {
   getConfig: () =>
-    activityClient.getWheelConfig(new GetWheelConfigRequest()).then(toPlain),
+    rpc(ACTIVITY, "GetWheelConfig", new GetWheelConfigRequest(), WheelConfigResponse),
 
   getState: () =>
-    activityClient.getWheelState(new GetWheelStateRequest()).then(toPlain),
+    rpc(ACTIVITY, "GetWheelState", new GetWheelStateRequest(), WheelStateResponse),
 
-  // Server-side determines free vs paid based on remaining free spins.
   spin: () =>
-    activityClient.spinWheel(new SpinWheelRequest()).then(toPlain),
+    rpc(ACTIVITY, "SpinWheel", new SpinWheelRequest(), SpinWheelResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -359,23 +361,25 @@ export const wheelRpc = {
 
 export const itemRpc = {
   getInventory: () =>
-    userClient.getInventory(new GetInventoryRequest()).then(toPlain),
+    rpc(USER, "GetInventory", new GetInventoryRequest(), InventoryResponse),
 
   getList: () =>
-    userClient.getItemDefineList(new GetItemDefineListRequest()).then(toPlain),
+    rpc(USER, "GetItemDefineList", new GetItemDefineListRequest(), ItemDefineListResponse),
 
   useItem: (data: { item_id: number; quantity?: number }) =>
-    userClient.useItem(new UseItemRequest({
-      itemId: BigInt(data.item_id),
-      quantity: data.quantity ?? 1,
-    })).then(toPlain),
+    rpc(USER, "UseItem",
+      new UseItemRequest({
+        itemId: BigInt(data.item_id),
+        quantity: data.quantity ?? 1,
+      }), UseItemResponse),
 
   transfer: (data: { target_user_id: number; item_id: number; quantity: number }) =>
-    userClient.transferItem(new TransferItemRequest({
-      toUserId: BigInt(data.target_user_id),
-      itemId: BigInt(data.item_id),
-      quantity: data.quantity,
-    })).then(toPlain),
+    rpc(USER, "TransferItem",
+      new TransferItemRequest({
+        toUserId: BigInt(data.target_user_id),
+        itemId: BigInt(data.item_id),
+        quantity: data.quantity,
+      }), TransferItemResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -385,9 +389,9 @@ export const itemRpc = {
 export const taskRpc = {
   getTaskConfig: async () => {
     const [daily, weekly, growth] = await Promise.allSettled([
-      userClient.getDailyTasks(new GetDailyTasksRequest()).then(toPlain),
-      userClient.getWeeklyTasks(new GetWeeklyTasksRequest()).then(toPlain),
-      userClient.getGrowthTasks(new GetGrowthTasksRequest()).then(toPlain),
+      rpc(USER, "GetDailyTasks", new GetDailyTasksRequest(), DailyTasksResponse),
+      rpc(USER, "GetWeeklyTasks", new GetWeeklyTasksRequest(), WeeklyTasksResponse),
+      rpc(USER, "GetGrowthTasks", new GetGrowthTasksRequest(), GrowthTasksResponse),
     ]);
     const getList = (r: PromiseSettledResult<Record<string, unknown>>): unknown[] =>
       r.status === "fulfilled" ? ((r.value as any)?.tasks || []) : [];
@@ -400,26 +404,22 @@ export const taskRpc = {
   },
 
   getTaskProgress: () =>
-    userClient.getTaskProgress(new GetTaskProgressRequest()).then(toPlain),
+    rpc(USER, "GetTaskProgress", new GetTaskProgressRequest(), TaskProgressResponse),
 
   claimReward: (taskId: number) =>
-    userClient.claimTask(new ClaimTaskRequest({
-      taskId: BigInt(taskId),
-    })).then(toPlain),
+    rpc(USER, "ClaimTask",
+      new ClaimTaskRequest({ taskId: BigInt(taskId) }), ClaimTaskResponse),
 
-  // Claim rewards for multiple completed tasks.
-  // Proto only supports single taskId, so we call claimReward per task in parallel.
   claimAllRewards: async (taskIds: number[]) => {
     if (!taskIds.length) return { claimed_count: 0 };
     const results = await Promise.allSettled(
       taskIds.map((taskId) =>
-        userClient.claimTask(new ClaimTaskRequest({
-          taskId: BigInt(taskId),
-        })).then(toPlain),
+        rpc(USER, "ClaimTask",
+          new ClaimTaskRequest({ taskId: BigInt(taskId) }), ClaimTaskResponse),
       ),
     );
-    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
-    const failed = results.filter((r) => r.status === 'rejected').length;
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
     if (failed > 0) throw new Error(`${succeeded} claimed, ${failed} failed`);
     return { claimed_count: succeeded };
   },
@@ -431,34 +431,30 @@ export const taskRpc = {
 
 export const mailRpc = {
   getMailbox: () =>
-    userClient.getInbox(new GetInboxRequest()).then(toPlain),
+    rpc(USER, "GetInbox", new GetInboxRequest(), InboxResponse),
 
   readMail: (id: number) =>
-    userClient.readMail(new ReadMailRequest({
-      mailId: BigInt(id),
-    })).then(toPlain),
+    rpc(USER, "ReadMail",
+      new ReadMailRequest({ mailId: BigInt(id) }), ReadMailResponse),
 
   deleteMail: async (ids: number[]) => {
-    // Proto only supports single mail_id, so delete each in parallel
     const results = await Promise.allSettled(
       ids.map((id) =>
-        userClient.deleteMail(new DeleteMailRequest({
-          mailId: BigInt(id),
-        })).then(toPlain),
+        rpc(USER, "DeleteMail",
+          new DeleteMailRequest({ mailId: BigInt(id) }), DeleteMailResponse),
       ),
     );
-    const failed = results.filter((r) => r.status === 'rejected').length;
+    const failed = results.filter((r) => r.status === "rejected").length;
     if (failed > 0) throw new Error(`${failed} mail(s) failed to delete`);
     return { deleted_count: ids.length };
   },
 
   claimMailAttachment: (id: number) =>
-    userClient.claimAttachment(new ClaimAttachmentRequest({
-      mailId: BigInt(id),
-    })).then(toPlain),
+    rpc(USER, "ClaimAttachment",
+      new ClaimAttachmentRequest({ mailId: BigInt(id) }), ClaimAttachmentResponse),
 
   getUnreadCount: () =>
-    userClient.getUnreadCount(new GetUnreadCountRequest()).then(toPlain),
+    rpc(USER, "GetUnreadCount", new GetUnreadCountRequest(), UnreadCountResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -467,20 +463,16 @@ export const mailRpc = {
 
 export const rankRpc = {
   getRankList: (rankType: string, period?: string, page?: number) =>
-    rankClient.getRankList(new GetRankListRequest({
-      type: rankType,
-      period: period ?? "",
-      page: page ?? 1,
-    })).then(toPlain),
+    rpc(RANK, "GetRankList",
+      new GetRankListRequest({ type: rankType, period: period ?? "", page: page ?? 1 }), RankListResponse),
 
   getMyRank: (rankType: string) =>
-    rankClient.getMyRank(new GetMyRankRequest({ type: rankType })).then(toPlain),
+    rpc(RANK, "GetMyRank",
+      new GetMyRankRequest({ type: rankType }), MyRankResponse),
 
   getTopPlayers: (rankType: string, limit?: number) =>
-    rankClient.getTopRanks(new GetTopRanksRequest({
-      type: rankType,
-      limit: limit ?? 10,
-    })).then(toPlain),
+    rpc(RANK, "GetTopRanks",
+      new GetTopRanksRequest({ type: rankType, limit: limit ?? 10 }), TopRanksResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -489,22 +481,22 @@ export const rankRpc = {
 
 export const agentRpc = {
   getAgentInfo: () =>
-    agentClient.getAgentInfo(new GetAgentInfoRequest()).then(toPlain),
+    rpc(AGENT, "GetAgentInfo", new GetAgentInfoRequest(), AgentInfoResponse),
 
   getSubordinates: () =>
-    agentClient.getSubordinates(new GetSubordinatesRequest()).then(toPlain),
+    rpc(AGENT, "GetSubordinates", new GetSubordinatesRequest(), SubordinatesResponse),
 
   getCommissionRecords: () =>
-    agentClient.getCommissions(new GetCommissionsRequest()).then(toPlain),
+    rpc(AGENT, "GetCommissions", new GetCommissionsRequest(), CommissionsResponse),
 
   getDashboard: () =>
-    agentClient.getAgentDashboard(new GetAgentDashboardRequest()).then(toPlain),
+    rpc(AGENT, "GetAgentDashboard", new GetAgentDashboardRequest(), AgentDashboardResponse),
 
   requestSettlement: () =>
-    agentClient.requestSettlement(new RequestSettlementRequest()).then(toPlain),
+    rpc(AGENT, "RequestSettlement", new RequestSettlementRequest(), RequestSettlementResponse),
 
   getPromoLink: () =>
-    agentClient.createPromoLink(new CreatePromoLinkRequest()).then(toPlain),
+    rpc(AGENT, "CreatePromoLink", new CreatePromoLinkRequest(), CreatePromoLinkResponse),
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -513,8 +505,9 @@ export const agentRpc = {
 
 export const reddotRpc = {
   getReddots: () =>
-    lobbyClient.getReddotState(new GetReddotStateRequest()).then(toPlain),
+    rpc(LOBBY, "GetReddotState", new GetReddotStateRequest(), ReddotStateResponse),
 
   markAsRead: (category: string) =>
-    lobbyClient.markReddotRead(new MarkReddotReadRequest({ category })).then(toPlain),
+    rpc(LOBBY, "MarkReddotRead",
+      new MarkReddotReadRequest({ category }), MarkReddotReadResponse),
 };

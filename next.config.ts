@@ -6,7 +6,7 @@ const BACKEND_URL =
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
-  transpilePackages: ["@connectrpc/connect", "@connectrpc/connect-web", "@bufbuild/protobuf"],
+  transpilePackages: ["@bufbuild/protobuf"],
   webpack: (config) => {
     config.resolve.extensionAlias = {
       ".js": [".ts", ".js"],
@@ -71,10 +71,10 @@ const nextConfig: NextConfig = {
 
   async rewrites() {
     return [
-      // Connect/gRPC-Web RPC proxy — H5 sends binary protobuf to Gate
+      // WS RPC proxy — single WebSocket endpoint for all business RPCs
       {
-        source: "/rockgame.:service/:method*",
-        destination: `${BACKEND_URL}/rockgame.:service/:method*`,
+        source: "/rpc",
+        destination: `${BACKEND_URL}/rpc`,
       },
       {
         source: "/api/v1/:path*",
