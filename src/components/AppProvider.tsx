@@ -9,6 +9,7 @@ import LoginModal from '@/components/LoginModal';
 import RegisterModal from '@/components/RegisterModal';
 import SpinWheel from '@/components/SpinWheel';
 import ConnectionBanner from '@/components/ConnectionBanner';
+import PushEvents from '@/components/PushEvents';
 
 export default function AppProvider({ children }: { children: React.ReactNode }) {
   const [loginOpen, setLoginOpen] = useState(false);
@@ -119,6 +120,9 @@ export default function AppProvider({ children }: { children: React.ReactNode })
         <div className="flex-1 relative z-10">
           {children}
         </div>
+
+        {/* Server→client push events (balance_changed, mail.*, ...) */}
+        <PushEvents />
 
         <ConnectionBanner
           isOffline={apiStatus.isOffline}
