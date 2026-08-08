@@ -51,8 +51,9 @@ function ForgotPasswordInner() {
     try {
       await authApi.requestPasswordReset(phone);
       setSuccess(t('auth.resetLinkSent'));
-    } catch (err) {
-      setSuccess(t('auth.resetLinkSent'));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      setError(msg || t('common.error'));
       console.error('[forgot-password] request error:', err);
     } finally {
       setSubmitting(false);

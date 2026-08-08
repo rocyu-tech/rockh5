@@ -9,6 +9,7 @@ import { AgentInfo, SubordinateItem, CommissionSummary, CommissionRecord } from 
 import { agentRpc } from '@/lib/rpc';
 import { toast } from 'sonner';
 import { getErrorMessage } from "@/lib/api-status";
+import { fmtMoneyPlain } from '@/lib/money';
 
 export default function AgentPage() {
   const [agentInfo, setAgentInfo] = useState<AgentInfo | null>(null);
@@ -186,7 +187,7 @@ export default function AgentPage() {
                       <Icon className="w-3 h-3 text-[#8892b0]" />
                       <span className="text-[10px] text-[#8892b0]">{card.label}</span>
                     </div>
-                    <p className="text-sm font-bold text-[#f5a623]">{card.value.toLocaleString()}</p>
+                    <p className="text-sm font-bold text-[#f5a623]">{fmtMoneyPlain(card.value)}</p>
                   </div>
                 );
               })}
@@ -204,7 +205,7 @@ export default function AgentPage() {
                 ) : (
                   <Wallet className="w-4 h-4 mr-2" />
                 )}
-                Request Settlement ({commissionSummary.available_commission.toLocaleString()})
+                Request Settlement ({fmtMoneyPlain(commissionSummary.available_commission)})
               </Button>
             )}
           </>
@@ -274,9 +275,9 @@ export default function AgentPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-white font-medium truncate">{sub.nickname}</p>
-                    <p className="text-[10px] text-[#8892b0]">VIP {sub.vip_level} · Bet: {sub.total_bet.toLocaleString()}</p>
+                    <p className="text-[10px] text-[#8892b0]">VIP {sub.vip_level} · Bet: {fmtMoneyPlain(sub.total_bet)}</p>
                   </div>
-                  <span className="text-xs text-[#f5a623] flex-shrink-0">+{sub.commission.toLocaleString()}</span>
+                  <span className="text-xs text-[#f5a623] flex-shrink-0">+{fmtMoneyPlain(sub.commission)}</span>
                 </div>
               ))
             )}
@@ -305,7 +306,7 @@ export default function AgentPage() {
                       {rec.nickname} · {new Date(rec.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <span className="text-xs text-[#f5a623] font-medium flex-shrink-0">+{rec.amount.toLocaleString()}</span>
+                  <span className="text-xs text-[#f5a623] font-medium flex-shrink-0">+{fmtMoneyPlain(rec.amount)}</span>
                 </div>
               ))
             )}

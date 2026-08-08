@@ -9,6 +9,7 @@ import { TaskTypeState, TaskItem } from '@/lib/api';
 import { taskRpc } from '@/lib/rpc';
 import { toast } from 'sonner';
 import { getErrorMessage } from "@/lib/api-status";
+import { fmtMoneyPlain } from '@/lib/money';
 
 const isValidUrl = (url: string): boolean => {
   try {
@@ -170,7 +171,7 @@ export default function TasksPage() {
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-medium text-white truncate">{task.task_name}</h3>
                       <span className="text-xs font-bold text-[#f5a623] ml-2 whitespace-nowrap">
-                        +{task.task_reward}
+                        +{fmtMoneyPlain(task.task_reward)}
                       </span>
                     </div>
                     <p className="text-[11px] text-[#8892b0] mt-0.5 line-clamp-1">{task.task_description}</p>

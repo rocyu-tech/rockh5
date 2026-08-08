@@ -7,6 +7,7 @@ import { useAppStore } from '@/store/app';
 import { RankItem } from '@/lib/api';
 import { rankRpc } from '@/lib/rpc';
 import { getErrorMessage } from '@/lib/api-status';
+import { fmtMoneyPlain } from '@/lib/money';
 import { toast } from 'sonner';
 
 const RANK_TYPES = [
@@ -120,7 +121,7 @@ export default function RankingPage() {
                     )}
                   </div>
                   <span className="text-[10px] text-white font-medium truncate max-w-full">{player.nickname}</span>
-                  <span className="text-[9px] text-[#f5a623]">{player.total_amount.toLocaleString()}</span>
+                  <span className="text-[9px] text-[#f5a623]">{fmtMoneyPlain(player.total_amount)}</span>
                   <div className={`w-full ${heights[idx]} bg-gradient-to-t from-[#f5a623]/20 to-[#f5a623]/5 rounded-t-lg flex items-start justify-center pt-2`}>
                     <span className="text-2xl">{medals[idx]}</span>
                   </div>
@@ -146,7 +147,7 @@ export default function RankingPage() {
                 <p className="text-xs text-white font-medium truncate">{myRank.nickname} (You)</p>
                 <p className="text-[10px] text-[#f5a623]">VIP {myRank.vip_level}</p>
               </div>
-              <span className="text-sm font-bold text-[#f5a623]">{myRank.total_amount.toLocaleString()}</span>
+              <span className="text-sm font-bold text-[#f5a623]">{fmtMoneyPlain(myRank.total_amount)}</span>
             </div>
           </div>
         )}
@@ -187,7 +188,7 @@ export default function RankingPage() {
                   <p className="text-[10px] text-[#8892b0]">VIP {player.vip_level}</p>
                 </div>
                 <span className="text-sm font-bold text-[#f5a623] flex-shrink-0">
-                  {player.total_amount.toLocaleString()}
+                  {fmtMoneyPlain(player.total_amount)}
                 </span>
               </div>
             ))}
